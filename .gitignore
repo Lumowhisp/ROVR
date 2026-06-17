@@ -1,0 +1,8 @@
+# Ignore personal folders
+Learn/
+RIVE/
+credentials/
+
+# OS
+.DS_Store
+Thumbs.db
