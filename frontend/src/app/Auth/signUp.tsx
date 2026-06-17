@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, TextInput, Touchable, View, Text } from "react-native";
+import { Pressable, TextInput, View, Text } from "react-native";
 import { BASE_URL } from "@/config/api";
 import { useRouter } from "expo-router";
 
