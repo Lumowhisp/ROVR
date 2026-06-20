@@ -22,6 +22,14 @@ function Input({
       value={value}
       onChangeText={onChangeText}
       secureTextEntry={secureTextEntry}
+      style={{
+        backgroundColor: "#e2e2e2",
+        width: "85%",
+        paddingHorizontal: 16,
+        marginVertical: 9,
+        paddingVertical: 10,
+        borderRadius: 10,
+      }}
     />
   );
 }
@@ -32,14 +40,14 @@ export default function Signup() {
   const [password, setPass] = useState("");
   const router = useRouter();
   const validate = () => {
-    if(!name.trim()){
-        alert("Enter Name");
-        return false;
+    if (!name.trim()) {
+      alert("Enter Name");
+      return false;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if(!emailRegex.test(email)){
-        alert("Valid Email");
-        return false;
+    if (!emailRegex.test(email)) {
+      alert("Valid Email");
+      return false;
     }
     if (password.length < 6) {
       alert("Enter PassWord of >= 6 Char");
@@ -54,7 +62,7 @@ export default function Signup() {
       );
       return false;
     }
-    
+
     return true;
   };
 
@@ -95,8 +103,20 @@ export default function Signup() {
           handleSignUp();
           console.log("SignUp Handled");
         }}
+        style={{
+          backgroundColor: "#212020",
+          paddingHorizontal: 20,
+          paddingVertical: 13,
+          borderRadius:10,
+          marginTop:9
+        }}
       >
-        <Text>Create Account</Text>
+        <Text style={{ color: "#ffffff", fontSize: 17 }}>Create Account</Text>
+      </Pressable>
+      <Pressable onPress={()=>{router.push("/Auth/signIn")}}>
+        <Text>
+          Already User? Sign In
+        </Text>
       </Pressable>
     </View>
   );
