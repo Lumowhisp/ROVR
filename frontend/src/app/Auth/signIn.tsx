@@ -2,6 +2,7 @@ import { Text, TextInput, View, Pressable } from "react-native";
 import { useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BASE_URL } from "@/config/api";
+import { router } from "expo-router";
 type InputProps = {
   placeholder: string;
   value: string;
@@ -80,14 +81,26 @@ export default function SignIn() {
         style={{
           width: "85%",
           height: 50,
-          backgroundColor: "#e2e2e2",
+          backgroundColor: "#212020",
           borderRadius: 12,
           paddingHorizontal: 16,
           marginVertical: 8,
         }}
         className="flex justify-center items-center"
       >
-        <Text>Sign In</Text>
+        <Text style={{
+          color:"#ffffff"
+        }}>Sign In</Text>
+      </Pressable>
+      <Pressable onPress={()=>{
+        router.push('/Auth/signUp')
+      }}
+      style={{
+        marginTop:10
+      }}>
+        <Text>
+          New User? Sign Up
+        </Text>
       </Pressable>
     </View>
   );
