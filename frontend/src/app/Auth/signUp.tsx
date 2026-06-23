@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Pressable, TextInput, View, Text } from "react-native";
 import { BASE_URL } from "@/config/api";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import OnBoard from "../screen/Onboard/onBoard";
 
 type InputProps = {
   placeholder: string;
@@ -83,7 +85,8 @@ export default function Signup() {
       if (!res.ok) {
         throw new Error(data.message);
       }
-      router.replace("/Auth/signIn");
+      await AsyncStorage.setItem("token", data.token);
+      router.replace("/screen/Onboard/onBoard");
     } catch (error) {
       console.log(error);
     }
@@ -92,7 +95,12 @@ export default function Signup() {
     <View className="flex-1 bg-primary justify-center items-center">
       <Input placeholder="Name" value={name} onChangeText={setName} />
       <Input placeholder="Email" value={email} onChangeText={setEmail} />
-      <Input placeholder="Password" value={password} onChangeText={setPass} />
+      <Input
+        placeholder="Password"
+        value={password}
+        onChangeText={setPass}
+        secureTextEntry={true}
+      />
       <Pressable
         onPress={() => {
           console.log("Pressed");
@@ -113,7 +121,10 @@ export default function Signup() {
       >
         <Text style={{ color: "#ffffff", fontSize: 17 }}>Create Account</Text>
       </Pressable>
-      <Pressable onPress={()=>{router.push("/Auth/signIn")}}>
+      <Pressable onPress={()=>{router.push("/Auth/signIn")}}
+        style={{
+          marginTop:10
+        }}>
         <Text>
           Already User? Sign In
         </Text>

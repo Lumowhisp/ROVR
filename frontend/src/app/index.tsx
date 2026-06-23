@@ -2,5 +2,5 @@
 import { Redirect } from "expo-router";
 
 export default function Home() {
-  return <Redirect href="/Auth/signUp"/>;
+  return <Redirect href="/screen/Onboard/onBoard"/>;
 }
