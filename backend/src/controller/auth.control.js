@@ -19,11 +19,23 @@ export const signup = async (req, res) => {
       password: hashedPass,
     });
     // console.log(hashedPass);
+    const token=jwt.sign(
+      {
+        id:user._id,
+        email:user.email,
+      },
+      config.JWT_SECRET,
+      {
+        expiresIn:"7d",
+      }
+    )
     res.status(201).json({
       message: "User Created Successfully",
       user,
+      token,
     });
     console.log("User Created Successfully");
+   
   } catch (error) {
     res.status(500).json({
       message: error.message,

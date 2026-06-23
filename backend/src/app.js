@@ -1,6 +1,7 @@
 import express from "express";
 import morgan from "morgan";
 import authRoutes from "./routes/auth.route.js";
+import onboardRoutes from "./routes/onboard.route.js"
 const app = express();
 app.use(morgan("dev"));
 app.use(express.json());
@@ -12,5 +13,6 @@ app.get("/name", (req, res) => {
   res.send("ADitya");
 });
 app.use("/api/auth", authRoutes);
+app.use("/api/onboard",onboardRoutes);
 
 export default app;
