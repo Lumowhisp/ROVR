@@ -5,6 +5,7 @@ import { Pressable, Text, TextInput, Touchable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Picker } from "@react-native-picker/picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 type InputType = {
   placeholder: string;
   value: string;
@@ -73,7 +74,9 @@ export default function OnBoard() {
       });
       if (!response.ok) {
         console.log("handleGetStarted Bugged");
+        return;
       }
+      router.replace("/screen/Onboard/screen2");
     } catch (error) {
       console.log(error);
     }
@@ -115,10 +118,16 @@ export default function OnBoard() {
             <Picker.Item label="Male" value="male" />
             <Picker.Item label="Female" value="female" />
           </Picker>
-
-          <Pressable onPress={handleGetStarted}>
-            <Text>Get Started</Text>
-          </Pressable>
+          <View
+            className="justify-center items-center"
+            style={{
+              marginTop: 20,
+            }}
+          >
+            <Pressable onPress={handleGetStarted}>
+              <Text>Get Started</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     </SafeAreaView>

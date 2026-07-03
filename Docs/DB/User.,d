@@ -1,0 +1,9 @@
+
+// Create and updating user info
+await User.findByIdAndUpdate(
+  userId,
+  {
+    height: 162,
+    weight: 51
+  }
+);

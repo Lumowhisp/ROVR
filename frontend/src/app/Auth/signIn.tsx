@@ -60,6 +60,7 @@ export default function SignIn() {
       console.log("Password:", password);
       console.log("Base URL:", BASE_URL);
       console.log("Logged In");
+      router.replace("/screen/Onboard/onBoard")
     } catch (error) {
       console.log(error);
       console.log(BASE_URL);

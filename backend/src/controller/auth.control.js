@@ -65,6 +65,7 @@ export const signin = async (req, res) => {
           token,
         });
       } else {
+        console.log("Invalid Credentials")
         return res.status(401).json({
           message: "Invalid Credentials",
         });
