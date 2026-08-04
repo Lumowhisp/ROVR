@@ -14,6 +14,7 @@ const getBaseUrl = () => {
 
 const BASE_URL = getBaseUrl();
 
+// eslint-disable-next-line import/no-named-as-default-member
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 10000,

@@ -13,6 +13,18 @@ Built with a state-of-the-art **Expo SDK 56 React Native** mobile client and a h
 
 ---
 
+## 👥 Team & Role Assignments
+
+| Member Name | Primary Role | Core Responsibility / Module Focus |
+|---|---|---|
+| **Aditya** (`@Lumowhisp`) | **Lead Architect & Full-Stack Engineer** | Project Lead, System Architecture, Expo SDK 56 App & Auth Integration |
+| *[ Team Member 1 ]* | **Backend & Database Engineer** | Mongoose Schemas, Express Controllers, Cycle Prediction Engine |
+| *[ Team Member 2 ]* | **Frontend / Mobile UI Engineer** | React Native UI Screens, Interactive Cycle Calendar, Symptom Tracker |
+| *[ Team Member 3 ]* | **Gamification & XP Specialist** | XP Rewards Logic, Hydration & Nutrition Triggers, Daily Streaks |
+| *[ Team Member 4 ]* | **Security & Privacy Lead** | Health Data Encryption, GDPR Compliance, Push Notifications |
+
+---
+
 ## 🌟 Key Features
 
 - 🎨 **Premium Aesthetic Design**: Dark mode interface (`#0A0A0F`), gradient accents (Electric Blue → Violet), glassmorphism inputs, and ambient background glow orbs.
