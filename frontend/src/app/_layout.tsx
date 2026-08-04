@@ -1,6 +1,13 @@
 import { useEffect } from 'react';
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-router';
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+  Slot,
+  useRouter,
+  useSegments,
+  useRootNavigationState,
+} from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme, ActivityIndicator, View, StyleSheet } from 'react-native';
 
@@ -26,7 +33,7 @@ function RootNavigator() {
     } else if (isAuthenticated && inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [isAuthenticated, isLoading, segments, navigationState?.key]);
+  }, [isAuthenticated, isLoading, segments, navigationState?.key, router]);
 
   if (isLoading || !navigationState?.key) {
     return (

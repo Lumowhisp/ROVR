@@ -10,8 +10,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
-  type StyleProp,
-  type ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -25,7 +23,7 @@ import Animated, {
   Easing,
   interpolate,
   FadeIn,
-  type SharedValue,
+  runOnUI,
 } from 'react-native-reanimated';
 import { useAuth } from '@/context/AuthContext';
 
@@ -53,34 +51,42 @@ export default function SignInScreen() {
   const field3Anim = useSharedValue(0);
 
   useEffect(() => {
-    // Staggered entrance animation
-    field1Anim.value = withDelay(200, withSpring(1, { damping: 20, stiffness: 90 }));
-    field2Anim.value = withDelay(350, withSpring(1, { damping: 20, stiffness: 90 }));
-    field3Anim.value = withDelay(500, withSpring(1, { damping: 20, stiffness: 90 }));
+    // Staggered entrance animation — mutations inside runOnUI are worklet-safe
+    runOnUI(() => {
+      'worklet';
+      field1Anim.value = withDelay(200, withSpring(1, { damping: 20, stiffness: 90 }));
+      field2Anim.value = withDelay(350, withSpring(1, { damping: 20, stiffness: 90 }));
+      field3Anim.value = withDelay(500, withSpring(1, { damping: 20, stiffness: 90 }));
+    })();
 
     // Pulsing logo glow
     const startGlow = () => {
-      logoGlow.value = withSequence(
-        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.3, { duration: 2000, easing: Easing.inOut(Easing.ease) })
-      );
+      runOnUI(() => {
+        'worklet';
+        logoGlow.value = withSequence(
+          withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.3, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+        );
+      })();
     };
     startGlow();
     const interval = setInterval(startGlow, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const makeFieldStyle = (animValue: SharedValue<number>) =>
-    useAnimatedStyle(() => ({
-      opacity: animValue.value,
-      transform: [
-        { translateY: interpolate(animValue.value, [0, 1], [30, 0]) },
-      ],
-    }));
-
-  const field1Style = makeFieldStyle(field1Anim);
-  const field2Style = makeFieldStyle(field2Anim);
-  const field3Style = makeFieldStyle(field3Anim);
+  // Each animated style is a direct top-level hook call (Rules of Hooks compliant)
+  const field1Style = useAnimatedStyle(() => ({
+    opacity: field1Anim.value,
+    transform: [{ translateY: interpolate(field1Anim.value, [0, 1], [30, 0]) }],
+  }));
+  const field2Style = useAnimatedStyle(() => ({
+    opacity: field2Anim.value,
+    transform: [{ translateY: interpolate(field2Anim.value, [0, 1], [30, 0]) }],
+  }));
+  const field3Style = useAnimatedStyle(() => ({
+    opacity: field3Anim.value,
+    transform: [{ translateY: interpolate(field3Anim.value, [0, 1], [30, 0]) }],
+  }));
 
   const buttonAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
@@ -96,14 +102,17 @@ export default function SignInScreen() {
   }));
 
   const triggerShake = () => {
-    shakeX.value = withSequence(
-      withTiming(-10, { duration: 50 }),
-      withTiming(10, { duration: 50 }),
-      withTiming(-8, { duration: 50 }),
-      withTiming(8, { duration: 50 }),
-      withTiming(-4, { duration: 50 }),
-      withTiming(0, { duration: 50 })
-    );
+    runOnUI(() => {
+      'worklet';
+      shakeX.value = withSequence(
+        withTiming(-10, { duration: 50 }),
+        withTiming(10, { duration: 50 }),
+        withTiming(-8, { duration: 50 }),
+        withTiming(8, { duration: 50 }),
+        withTiming(-4, { duration: 50 }),
+        withTiming(0, { duration: 50 })
+      );
+    })();
   };
 
   const handleSignIn = async () => {
@@ -128,6 +137,20 @@ export default function SignInScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePressIn = () => {
+    runOnUI(() => {
+      'worklet';
+      buttonScale.value = withSpring(0.97, { damping: 15 });
+    })();
+  };
+
+  const handlePressOut = () => {
+    runOnUI(() => {
+      'worklet';
+      buttonScale.value = withSpring(1, { damping: 15 });
+    })();
   };
 
   return (
@@ -250,12 +273,8 @@ export default function SignInScreen() {
             {/* Sign In Button */}
             <Animated.View style={[field3Style, { marginTop: 8 }]}>
               <AnimatedPressable
-                onPressIn={() => {
-                  buttonScale.value = withSpring(0.97, { damping: 15 });
-                }}
-                onPressOut={() => {
-                  buttonScale.value = withSpring(1, { damping: 15 });
-                }}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
                 onPress={handleSignIn}
                 disabled={loading}
                 style={buttonAnimStyle}
@@ -290,7 +309,7 @@ export default function SignInScreen() {
               entering={FadeIn.delay(700).duration(500)}
               style={styles.switchContainer}
             >
-              <Text style={styles.switchText}>Don't have an account? </Text>
+              <Text style={styles.switchText}>Don&apos;t have an account? </Text>
               <Pressable
                 onPress={() => router.push('/(auth)/sign-up')}
                 disabled={loading}

@@ -10,8 +10,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
-  type StyleProp,
-  type ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -25,7 +23,7 @@ import Animated, {
   Easing,
   interpolate,
   FadeIn,
-  type SharedValue,
+  runOnUI,
 } from 'react-native-reanimated';
 import { useAuth } from '@/context/AuthContext';
 
@@ -56,36 +54,50 @@ export default function SignUpScreen() {
   const field5Anim = useSharedValue(0);
 
   useEffect(() => {
-    field1Anim.value = withDelay(200, withSpring(1, { damping: 20, stiffness: 90 }));
-    field2Anim.value = withDelay(300, withSpring(1, { damping: 20, stiffness: 90 }));
-    field3Anim.value = withDelay(400, withSpring(1, { damping: 20, stiffness: 90 }));
-    field4Anim.value = withDelay(500, withSpring(1, { damping: 20, stiffness: 90 }));
-    field5Anim.value = withDelay(600, withSpring(1, { damping: 20, stiffness: 90 }));
+    runOnUI(() => {
+      'worklet';
+      field1Anim.value = withDelay(200, withSpring(1, { damping: 20, stiffness: 90 }));
+      field2Anim.value = withDelay(300, withSpring(1, { damping: 20, stiffness: 90 }));
+      field3Anim.value = withDelay(400, withSpring(1, { damping: 20, stiffness: 90 }));
+      field4Anim.value = withDelay(500, withSpring(1, { damping: 20, stiffness: 90 }));
+      field5Anim.value = withDelay(600, withSpring(1, { damping: 20, stiffness: 90 }));
+    })();
 
     const startGlow = () => {
-      logoGlow.value = withSequence(
-        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.3, { duration: 2000, easing: Easing.inOut(Easing.ease) })
-      );
+      runOnUI(() => {
+        'worklet';
+        logoGlow.value = withSequence(
+          withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.3, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+        );
+      })();
     };
     startGlow();
     const interval = setInterval(startGlow, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const makeFieldStyle = (animValue: SharedValue<number>) =>
-    useAnimatedStyle(() => ({
-      opacity: animValue.value,
-      transform: [
-        { translateY: interpolate(animValue.value, [0, 1], [30, 0]) },
-      ],
-    }));
-
-  const f1Style = makeFieldStyle(field1Anim);
-  const f2Style = makeFieldStyle(field2Anim);
-  const f3Style = makeFieldStyle(field3Anim);
-  const f4Style = makeFieldStyle(field4Anim);
-  const f5Style = makeFieldStyle(field5Anim);
+  // Each animated style is a direct top-level hook call (Rules of Hooks compliant)
+  const f1Style = useAnimatedStyle(() => ({
+    opacity: field1Anim.value,
+    transform: [{ translateY: interpolate(field1Anim.value, [0, 1], [30, 0]) }],
+  }));
+  const f2Style = useAnimatedStyle(() => ({
+    opacity: field2Anim.value,
+    transform: [{ translateY: interpolate(field2Anim.value, [0, 1], [30, 0]) }],
+  }));
+  const f3Style = useAnimatedStyle(() => ({
+    opacity: field3Anim.value,
+    transform: [{ translateY: interpolate(field3Anim.value, [0, 1], [30, 0]) }],
+  }));
+  const f4Style = useAnimatedStyle(() => ({
+    opacity: field4Anim.value,
+    transform: [{ translateY: interpolate(field4Anim.value, [0, 1], [30, 0]) }],
+  }));
+  const f5Style = useAnimatedStyle(() => ({
+    opacity: field5Anim.value,
+    transform: [{ translateY: interpolate(field5Anim.value, [0, 1], [30, 0]) }],
+  }));
 
   const buttonAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
@@ -101,14 +113,17 @@ export default function SignUpScreen() {
   }));
 
   const triggerShake = () => {
-    shakeX.value = withSequence(
-      withTiming(-10, { duration: 50 }),
-      withTiming(10, { duration: 50 }),
-      withTiming(-8, { duration: 50 }),
-      withTiming(8, { duration: 50 }),
-      withTiming(-4, { duration: 50 }),
-      withTiming(0, { duration: 50 })
-    );
+    runOnUI(() => {
+      'worklet';
+      shakeX.value = withSequence(
+        withTiming(-10, { duration: 50 }),
+        withTiming(10, { duration: 50 }),
+        withTiming(-8, { duration: 50 }),
+        withTiming(8, { duration: 50 }),
+        withTiming(-4, { duration: 50 }),
+        withTiming(0, { duration: 50 })
+      );
+    })();
   };
 
   const validateForm = (): string | null => {
@@ -150,44 +165,19 @@ export default function SignUpScreen() {
     }
   };
 
-  const renderInput = (
-    label: string,
-    fieldKey: string,
-    value: string,
-    onChangeText: (text: string) => void,
-    animStyle: any,
-    options: {
-      placeholder: string;
-      secureTextEntry?: boolean;
-      keyboardType?: 'email-address' | 'default';
-      autoCapitalize?: 'none' | 'words';
-    }
-  ) => (
-    <Animated.View style={[styles.inputWrapper, animStyle]}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <View
-        style={[
-          styles.inputContainer,
-          focusedField === fieldKey && styles.inputContainerFocused,
-        ]}
-      >
-        <TextInput
-          style={styles.input}
-          placeholder={options.placeholder}
-          placeholderTextColor="#6B728080"
-          value={value}
-          onChangeText={onChangeText}
-          onFocus={() => setFocusedField(fieldKey)}
-          onBlur={() => setFocusedField(null)}
-          secureTextEntry={options.secureTextEntry}
-          keyboardType={options.keyboardType ?? 'default'}
-          autoCapitalize={options.autoCapitalize ?? 'none'}
-          autoCorrect={false}
-          editable={!loading}
-        />
-      </View>
-    </Animated.View>
-  );
+  const handlePressIn = () => {
+    runOnUI(() => {
+      'worklet';
+      buttonScale.value = withSpring(0.97, { damping: 15 });
+    })();
+  };
+
+  const handlePressOut = () => {
+    runOnUI(() => {
+      'worklet';
+      buttonScale.value = withSpring(1, { damping: 15 });
+    })();
+  };
 
   return (
     <View style={styles.container}>
@@ -257,32 +247,82 @@ export default function SignUpScreen() {
               </Animated.View>
             )}
 
-            {renderInput('Full Name', 'name', name, setName, f1Style, {
-              placeholder: 'John Doe',
-              autoCapitalize: 'words',
-            })}
+            {/* Full Name */}
+            <Animated.View style={[styles.inputWrapper, f1Style]}>
+              <Text style={styles.inputLabel}>Full Name</Text>
+              <View style={[styles.inputContainer, focusedField === 'name' && styles.inputContainerFocused]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="John Doe"
+                  placeholderTextColor="#6B728080"
+                  value={name}
+                  onChangeText={setName}
+                  onFocus={() => setFocusedField('name')}
+                  onBlur={() => setFocusedField(null)}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  editable={!loading}
+                />
+              </View>
+            </Animated.View>
 
-            {renderInput('Email', 'email', email, setEmail, f2Style, {
-              placeholder: 'you@example.com',
-              keyboardType: 'email-address',
-            })}
+            {/* Email */}
+            <Animated.View style={[styles.inputWrapper, f2Style]}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <View style={[styles.inputContainer, focusedField === 'email' && styles.inputContainerFocused]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="you@example.com"
+                  placeholderTextColor="#6B728080"
+                  value={email}
+                  onChangeText={setEmail}
+                  onFocus={() => setFocusedField('email')}
+                  onBlur={() => setFocusedField(null)}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!loading}
+                />
+              </View>
+            </Animated.View>
 
-            {renderInput('Password', 'password', password, setPassword, f3Style, {
-              placeholder: '••••••••',
-              secureTextEntry: true,
-            })}
+            {/* Password */}
+            <Animated.View style={[styles.inputWrapper, f3Style]}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <View style={[styles.inputContainer, focusedField === 'password' && styles.inputContainerFocused]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="••••••••"
+                  placeholderTextColor="#6B728080"
+                  value={password}
+                  onChangeText={setPassword}
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
+                  secureTextEntry
+                  autoCorrect={false}
+                  editable={!loading}
+                />
+              </View>
+            </Animated.View>
 
-            {renderInput(
-              'Confirm Password',
-              'confirmPassword',
-              confirmPassword,
-              setConfirmPassword,
-              f4Style,
-              {
-                placeholder: '••••••••',
-                secureTextEntry: true,
-              }
-            )}
+            {/* Confirm Password */}
+            <Animated.View style={[styles.inputWrapper, f4Style]}>
+              <Text style={styles.inputLabel}>Confirm Password</Text>
+              <View style={[styles.inputContainer, focusedField === 'confirmPassword' && styles.inputContainerFocused]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="••••••••"
+                  placeholderTextColor="#6B728080"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  onFocus={() => setFocusedField('confirmPassword')}
+                  onBlur={() => setFocusedField(null)}
+                  secureTextEntry
+                  autoCorrect={false}
+                  editable={!loading}
+                />
+              </View>
+            </Animated.View>
 
             {/* Password hint */}
             <Animated.View style={f4Style}>
@@ -294,12 +334,8 @@ export default function SignUpScreen() {
             {/* Sign Up Button */}
             <Animated.View style={[f5Style, { marginTop: 8 }]}>
               <AnimatedPressable
-                onPressIn={() => {
-                  buttonScale.value = withSpring(0.97, { damping: 15 });
-                }}
-                onPressOut={() => {
-                  buttonScale.value = withSpring(1, { damping: 15 });
-                }}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
                 onPress={handleSignUp}
                 disabled={loading}
                 style={buttonAnimStyle}
@@ -335,10 +371,7 @@ export default function SignUpScreen() {
               style={styles.switchContainer}
             >
               <Text style={styles.switchText}>Already have an account? </Text>
-              <Pressable
-                onPress={() => router.back()}
-                disabled={loading}
-              >
+              <Pressable onPress={() => router.back()} disabled={loading}>
                 <Text style={styles.switchLink}>Sign In</Text>
               </Pressable>
             </Animated.View>
