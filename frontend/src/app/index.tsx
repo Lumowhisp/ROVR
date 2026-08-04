@@ -1,6 +1,5 @@
+import { Redirect } from 'expo-router';
 
-import { Redirect } from "expo-router";
-
-export default function Home() {
-  return <Redirect href="/screen/Onboard/onBoard"/>;
+export default function Index() {
+  return <Redirect href="/(tabs)" />;
 }

@@ -1,56 +1,88 @@
-# Welcome to your Expo app 👋
+# 📱 ROVR Frontend — Expo SDK 56 Mobile Client
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+The **ROVR Frontend** is a modern, high-performance mobile application built with **Expo SDK 56**, **React Native 0.85**, and **TypeScript**. It delivers a premium fitness tracking interface featuring custom Reanimated 4 micro-animations, glassmorphism design elements, JWT authentication, and automatic host IP detection for mobile device testing.
 
-## Get started
+---
 
-1. Install dependencies
+## 📂 Codebase File & Folder Structure
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+frontend/
+├── package.json               # App dependencies and npm scripts
+├── tsconfig.json              # TypeScript configuration & path aliases (@/*)
+├── app.json                   # Expo SDK 56 configuration metadata
+├── expo-env.d.ts              # Expo environment declarations
+├── src/
+│   ├── app/                   # Expo Router file-based navigation
+│   │   ├── _layout.tsx        # Root layout with AuthProvider & RootNavigator
+│   │   ├── index.tsx          # Root route redirect -> /(tabs)
+│   │   ├── (auth)/            # Unauthenticated route group
+│   │   │   ├── _layout.tsx    # Stack layout for auth screens
+│   │   │   ├── sign-in.tsx    # Premium Sign In screen with Reanimated animations
+│   │   │   └── sign-up.tsx    # Premium Sign Up screen with client validation
+│   │   └── (tabs)/            # Authenticated route group
+│   │       ├── _layout.tsx    # Tab bar navigation layout
+│   │       ├── index.tsx      # Main Home Dashboard
+│   │       └── explore.tsx    # Explore & Feature Demo screen
+│   ├── components/            # Shared UI components & animations
+│   │   ├── animated-icon.tsx  # Animated splash screen overlay
+│   │   ├── app-tabs.tsx       # Custom native/web tab navigation bar
+│   │   ├── external-link.tsx  # Cross-platform external link handler
+│   │   ├── themed-text.tsx    # Theme-aware Text component
+│   │   └── themed-view.tsx    # Theme-aware View component
+│   ├── constants/             # Design system tokens
+│   │   └── theme.ts           # Color palettes (Light/Dark), spacing, fonts
+│   ├── context/               # Global state providers
+│   │   └── AuthContext.tsx    # Auth state, JWT AsyncStorage persistence, auto-hydration
+│   ├── hooks/                 # Custom React hooks
+│   │   ├── use-color-scheme.ts# Color scheme hook
+│   │   └── use-theme.ts       # Active theme colors hook
+│   ├── services/              # Networking & API integrations
+│   │   └── api.ts             # Axios instance with Expo host IP auto-resolution
+│   └── types/                 # Custom TypeScript definitions
+│       └── declarations.d.ts  # CSS module declarations
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-### Other setup steps
+## 🔍 Important Code Aspects & Architecture
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+### 1. Authentication Flow & Guard (`AuthContext.tsx` & `_layout.tsx`)
+- **Token Persistence**: JWT tokens and minimal user data are stored securely in `AsyncStorage`.
+- **Auto-Hydration**: On app startup, `AuthContext` reads stored credentials and updates `isAuthenticated`.
+- **Navigation Guard**: `RootNavigator` inside [`src/app/_layout.tsx`](file:///Users/aditya/Developer/ROVR/frontend/src/app/_layout.tsx) waits until both auth state and `useRootNavigationState()` are fully ready before redirecting:
+  - Unauthenticated users $\rightarrow$ Redirected to `/(auth)/sign-in`
+  - Authenticated users $\rightarrow$ Redirected to `/(tabs)`
 
-## Learn more
+### 2. Dynamic Host IP Resolution (`api.ts`)
+To prevent hardcoding IP addresses when testing on mobile over Wi-Fi or Mobile Hotspot, [`src/services/api.ts`](file:///Users/aditya/Developer/ROVR/frontend/src/services/api.ts) dynamically extracts the host IP from Expo Constants:
 
-To learn more about developing your project with Expo, look at the following resources:
+```typescript
+const getBaseUrl = () => {
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const ip = hostUri.split(':')[0];
+    return `http://${ip}:3000`;
+  }
+  return 'http://10.57.101.37:3000';
+};
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### 3. Micro-Animations & Design System (`sign-in.tsx` & `sign-up.tsx`)
+- **Staggered Entrance**: Form input fields slide up and fade in sequentially on load using `withDelay()` and `withSpring()`.
+- **Error Feedback**: Form triggers a horizontal shake sequence on invalid input or failed authentication requests.
+- **Glowing Brand**: Pulsing text shadow animation on the **ROVR** title.
+- **Button Physics**: Scale transformation (0.97) on press using `react-native-reanimated`.
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+## 🛠️ Scripts & Running Locally
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+| Command | Action |
+|---|---|
+| `npx expo start` | Start Expo dev server |
+| `npx expo start --clear` | Clear Expo Metro cache and start server |
+| `npx tsc --noEmit` | Run TypeScript type check across the app |
+| `npm run android` | Run on Android emulator |
+| `npm run ios` | Run on iOS simulator |
+| `npm run web` | Run web version in browser |
