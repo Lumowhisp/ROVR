@@ -8,7 +8,6 @@ import {
   useSegments,
   useRootNavigationState,
 } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme, ActivityIndicator, View, StyleSheet } from 'react-native';
 
 import { AuthProvider, useAuth } from '@/context/AuthContext';

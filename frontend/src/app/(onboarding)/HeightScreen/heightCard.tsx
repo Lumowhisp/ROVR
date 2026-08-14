@@ -24,9 +24,9 @@ export default function HeightSelector() {
   }));
 
   const pulse = () => {
-    bump.value = withSpring(1.15, { damping: 8 }, () => {
-      bump.value = withSpring(1);
-    });
+    bump.set(withSpring(1.15, { damping: 8 }, () => {
+        bump.set(withSpring(1));
+      }));
   };
 
   const adjust = (delta: number) => {
