@@ -32,7 +32,7 @@ function RootNavigator() {
     //   router.replace('/(auth)/sign-in');
     // } else 
     if (isAuthenticated && inAuthGroup) {
-      router.replace('/(tabs)');
+      router.replace('/(onboarding)');
     }
   }, [isAuthenticated, isLoading, segments, navigationState?.key, router]);
 
