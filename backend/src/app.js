@@ -3,6 +3,7 @@ import morgan from "morgan";
 import authRoutes from "./routes/auth.route.js";
 import onboardRoutes from "./routes/onboard.route.js";
 import profileRoutes from "./routes/profile.route.js";
+import stepsRoutes from "./routes/steps.route.js";
 const app = express();
 app.use(morgan("dev"));
 app.use(express.json());
@@ -23,4 +24,7 @@ app.use("/api/services/profile", (req, res, next) => {
 
 app.use("/api/services/profile", profileRoutes);
 console.log("profileRoutes =", profileRoutes);
+
+app.use("/api/services/steps", stepsRoutes);
+
 export default app;
