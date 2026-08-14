@@ -1,6 +1,5 @@
 import { View, Text, Pressable, StyleSheet, Dimensions } from "react-native";
-import { useState } from "react";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import LottieView from "lottie-react-native";
 import Animated, {
   useSharedValue,
@@ -26,39 +25,38 @@ const genders = [
 ];
 
 function GenderTile({
-    gender,
-    isSelected,
-    onPress,
-  }: {
-    gender: (typeof genders)[number];
-    isSelected: boolean;
-    onPress: () => void;
-  }) {
-    const scale = useSharedValue(1);
-    const selectProgress = useSharedValue(isSelected ? 1 : 0);
-  
-    useEffect(() => {
-      selectProgress.value = withTiming(isSelected ? 1 : 0, { duration: 200 });
-    }, [isSelected]);
-  
-    const cardStyle = useAnimatedStyle(() => ({
-      transform: [{ scale: scale.value }],
-      borderColor: isSelected ? ACCENT : "rgba(255,255,255,0.08)",
-      backgroundColor: isSelected
-        ? "rgba(108,92,231,0.14)"
-        : "rgba(255,255,255,0.04)",
-    }));
-  
-    const badgeStyle = useAnimatedStyle(() => ({
-      opacity: selectProgress.value,
-      transform: [{ scale: 0.6 + selectProgress.value * 0.4 }],
-    }));
+  gender,
+  isSelected,
+  onPress,
+}: {
+  gender: (typeof genders)[number];
+  isSelected: boolean;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const selectProgress = useSharedValue(isSelected ? 1 : 0);
 
+  useEffect(() => {
+    selectProgress.value = withTiming(isSelected ? 1 : 0, { duration: 200 });
+  }, [isSelected, selectProgress]);
+
+  const cardStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    borderColor: isSelected ? ACCENT : "rgba(255,255,255,0.08)",
+    backgroundColor: isSelected
+      ? "rgba(108,92,231,0.14)"
+      : "rgba(255,255,255,0.04)",
+  }));
+
+  const badgeStyle = useAnimatedStyle(() => ({
+    opacity: selectProgress.value,
+    transform: [{ scale: 0.6 + selectProgress.value * 0.4 }],
+  }));
 
   return (
     <Pressable
-      onPressIn={() => (scale.value = withSpring(0.97, { damping: 15 }))}
-      onPressOut={() => (scale.value = withSpring(1, { damping: 15 }))}
+      onPressIn={() => scale.set(withSpring(0.97, { damping: 15 }))}
+      onPressOut={() => scale.set(withSpring(1, { damping: 15 }))}
       onPress={onPress}
       style={{ width: TILE_WIDTH }}
     >
@@ -90,10 +88,8 @@ export default function GenderCard() {
   return (
     <View style={styles.container}>
       <View>
-        <Text style={styles.title}>What's your gender?</Text>
-        <Text style={styles.subtitle}>
-          This helps us personalize your plan
-        </Text>
+        <Text style={styles.title}>What&apos;s your gender?</Text>
+        <Text style={styles.subtitle}>This helps us personalize your plan</Text>
       </View>
 
       <View style={styles.row}>

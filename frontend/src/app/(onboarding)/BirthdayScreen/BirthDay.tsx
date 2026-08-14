@@ -1,4 +1,4 @@
-import { View, Text } from "react-native";
+import { View } from "react-native";
 import DateSelector from "./dataSelector";
 import LottieView from "lottie-react-native";
 import CtaButton from "./CTA";

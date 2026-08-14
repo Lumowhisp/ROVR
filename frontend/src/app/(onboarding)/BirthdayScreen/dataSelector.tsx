@@ -3,7 +3,6 @@ import { View, Text, Pressable } from "react-native";
 import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import LottieView from "lottie-react-native";
 
 export default function DateSelector() {
   const [date, setDate] = useState<Date | null>(null);
@@ -14,7 +13,7 @@ export default function DateSelector() {
       setDate(selectedDate);
     }
   };
-  const birthDay = date ? date.toISOString() : "DD/MM/YYYY";
+  // const birthDay = date ? date.toISOString() : "DD/MM/YYYY";
   return (
     <View
       style={{
