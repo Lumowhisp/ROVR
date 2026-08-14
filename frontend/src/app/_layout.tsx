@@ -12,8 +12,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme, ActivityIndicator, View, StyleSheet } from 'react-native';
 
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-SplashScreen.preventAutoHideAsync();
+// SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -28,9 +29,10 @@ function RootNavigator() {
 
     const inAuthGroup = segments[0] === '(auth)';
 
-    if (!isAuthenticated && !inAuthGroup) {
-      router.replace('/(auth)/sign-in');
-    } else if (isAuthenticated && inAuthGroup) {
+    // if (!isAuthenticated && !inAuthGroup) {
+    //   router.replace('/(auth)/sign-in');
+    // } else 
+    if (isAuthenticated && inAuthGroup) {
       router.replace('/(tabs)');
     }
   }, [isAuthenticated, isLoading, segments, navigationState?.key, router]);
@@ -50,11 +52,13 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <AuthProvider>
+          <RootNavigator />
+        </AuthProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
