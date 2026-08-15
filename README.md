@@ -1,4 +1,4 @@
-# ⚡ ROVR — Next-Generation Fitness Platform
+# ROVR — Next-Generation Fitness & Health Platform
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Expo](https://img.shields.io/badge/Expo-SDK_56-blue.svg)](https://expo.dev)
@@ -7,180 +7,206 @@
 [![Express](https://img.shields.io/badge/Express.js-5.x-000000.svg)](https://expressjs.com)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248.svg)](https://www.mongodb.com)
 
-**ROVR** is a premium, modern fitness and wellness tracking platform designed to help users transform their physical health, track daily hydration, monitor BMI, and stay consistent on their fitness journey.
+ROVR is an integrated fitness, wellness, and activity-tracking platform engineered to deliver personalized health insights, biological cycle-aware training recommendations, predictive hydration modeling, and gamified consistency tracking.
 
-Built with a state-of-the-art **Expo SDK 56 React Native** mobile client and a high-performance **Express.js + MongoDB** backend API.
+Built as a decoupled full-stack architecture featuring an **Expo SDK 56 React Native** mobile client and an **Express.js + MongoDB** REST API service.
 
 ---
 
-## 👥 Team & Role Assignments
+## Team and Role Assignments
 
-| Member Name | Primary Role | Core Responsibility / Module Focus |
+| Member Name | Primary Role | Core Responsibility and Focus Area |
 |---|---|---|
-| **Aditya** (`@Lumowhisp`) | **Lead Architect & Full-Stack Engineer** | Project Lead, System Architecture, Expo SDK 56 App & Auth Integration |
-| *[ Team Member 1 ]* | **Backend & Database Engineer** | Mongoose Schemas, Express Controllers, Cycle Prediction Engine |
-| *[ Team Member 2 ]* | **Frontend / Mobile UI Engineer** | React Native UI Screens, Interactive Cycle Calendar, Symptom Tracker |
-| *[ Team Member 3 ]* | **Gamification & XP Specialist** | XP Rewards Logic, Hydration & Nutrition Triggers, Daily Streaks |
-| *[ Team Member 4 ]* | **Security & Privacy Lead** | Health Data Encryption, GDPR Compliance, Push Notifications |
+| **Aditya** (`@Lumowhisp`) | **Lead Architect and Full-Stack Engineer** | Project Lead, System Architecture, Mobile Client and Auth Integration |
+| *[ Team Member 1 ]* | **Backend and Database Engineer** | Mongoose Schemas, Express Controllers, Cycle Prediction Engine |
+| *[ Team Member 2 ]* | **Frontend and Mobile UI Engineer** | React Native UI Components, Cycle Calendar, Symptom Tracker |
+| *[ Team Member 3 ]* | **Gamification Specialist** | XP Calculation Engine, Hydration and Nutrition Triggers, Streak Logic |
+| *[ Team Member 4 ]* | **Security and Privacy Lead** | Health Data Encryption, GDPR Compliance, Consent Protocols |
 
 ---
 
-## 🌟 Key Features
+## Core Capabilities
 
-- 🎨 **Premium Aesthetic Design**: Dark mode interface (`#0A0A0F`), gradient accents (Electric Blue → Violet), glassmorphism inputs, and ambient background glow orbs.
-- 🔐 **Secure JWT Authentication**: Full Sign In & Sign Up flow with encrypted password hashing (`bcryptjs`), JWT token storage (`AsyncStorage`), and automatic session restoration.
-- 📱 **Mobile Hotspot & Wi-Fi Ready**: Auto-detects local host IP address via `expo-constants` so Expo Go mobile clients connect seamlessly on any local Wi-Fi or mobile hotspot.
-- 🏃 **Fitness & Hydration Tracking**: Built-in data schemas and API endpoints for user onboarding, BMI calculation, and daily hydration logging.
-- 🚀 **Smooth 60 FPS Animations**: Staggered form field entrances, pulsing brand glow, press physics, and error shake effects powered by `react-native-reanimated`.
+- **Intelligent Activity and Route Safety**: Live GPS activity recording with route visualization, surface analytics, and AI-assisted safety evaluations.
+- **Cycle-Aware Biological Guidance**: Women's Wellness companion that automatically aligns workout intensity, recovery regimens, and nutritional suggestions with hormonal phases.
+- **Behavioral Hydration Engine**: Context-aware fluid tracking that replaces static alarms with adaptive reminders derived from baseline habits and live workout intensity.
+- **Cross-Health Intelligence**: Ingests physiological metrics (sleep duration, resting heart rate, step count) via Health Connect to adjust daily training load.
+- **Gamified Consistency Loop**: Progression system featuring XP rewards, multi-week streaks, landmark quests, and exploration bonuses.
+- **Secure Token-Based Authentication**: JWT session handling with bcrypt password hashing, encrypted local storage, and optional Firebase OAuth integration.
+- **Dynamic Host Resolution**: Automatic network IP discovery via `expo-constants` for zero-configuration testing across local Wi-Fi and mobile hotspots.
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```mermaid
 graph TD
-    subgraph Mobile Client [Expo SDK 56 App]
-        UI[Sign In / Sign Up Screens] --> AuthCtx[AuthContext / AsyncStorage]
-        AuthCtx --> API[Axios API Client]
-        API -->|Dynamic IP Resolution| Net[Expo Constants Host Detector]
+    subgraph Mobile Client [Expo SDK 56 Mobile App]
+        UI[User Interface Screens] --> AuthCtx[AuthContext / AsyncStorage]
+        AuthCtx --> API[Axios HTTP Client]
+        API -->|Dynamic Host Resolution| Net[Expo Constants Network Layer]
     end
 
-    subgraph Backend API [Express 5.x Service]
-        Net -->|HTTP / JSON| ExpressApp[Express App]
-        ExpressApp --> AuthRouter[/api/auth Router]
-        ExpressApp --> ProfileRouter[/api/services/profile Router]
-        ExpressApp --> OnboardRouter[/api/onboard Router]
+    subgraph Backend Service [Express 5.x REST API]
+        Net -->|HTTP / JSON Requests| ExpressApp[Express Application]
+        ExpressApp --> AuthRouter[/api/auth Routes]
+        ExpressApp --> ProfileRouter[/api/services/profile Routes]
+        ExpressApp --> OnboardRouter[/api/onboard Routes]
+        ExpressApp --> HydrationRouter[/api/hydration Routes]
         
-        AuthRouter --> AuthCtrl[Auth Controller]
-        AuthCtrl --> JWT[JSON Web Token]
-        AuthCtrl --> Bcrypt[bcryptjs Hash]
-        AuthCtrl --> Mongoose[User Mongoose Model]
+        AuthRouter --> AuthCtrl[Authentication Controller]
+        AuthCtrl --> JWT[JWT Token Generation]
+        AuthCtrl --> Bcrypt[bcryptjs Hashing]
+        AuthCtrl --> Mongoose[Mongoose Schemas]
     end
 
-    subgraph Database [Database Layer]
-        Mongoose --> Atlas[(MongoDB Atlas / Local DB)]
+    subgraph Database Layer [Persistence Tier]
+        Mongoose --> Atlas[(MongoDB Atlas Cluster)]
     end
 ```
 
 ---
 
-## 📁 Repository Directory Structure
+## Repository Structure
 
-```
+```text
 ROVR/
-├── README.md                  # Comprehensive platform documentation
+├── README.md                  # Root project documentation
 ├── LICENSE                    # MIT Open Source License
+├── CODE_OF_CONDUCT.md         # Community code of conduct
 ├── CONTRIBUTING.md             # Developer contribution guidelines
-├── backend/                   # Node.js + Express + MongoDB REST API
-│   ├── README.md              # Backend-specific documentation & API spec
-│   ├── server.js              # Server entry point (port 3000)
-│   ├── package.json           # Backend dependencies & scripts
-│   ├── .env                   # Environment variables (Mongo URI, JWT secret)
+├── Docs/                      # Technical specifications and presentation materials
+│   ├── PPT/                   # Presentation outlines and decks
+│   ├── hydration.md           # Hydration engine specification
+│   └── README.md              # Extended system design documentation
+├── backend/                   # Node.js + Express.js REST API
+│   ├── server.js              # Server entry point
+│   ├── package.json           # Backend dependencies and scripts
+│   ├── .env                   # Environment variables (Mongo URI, JWT Secret)
 │   └── src/
-│       ├── app.js             # Express application setup & route mounting
-│       ├── config/            # Database connection & env verification
-│       ├── controller/        # Request handlers (signup, signin, profile)
-│       ├── Middleware/        # JWT route protection middleware
-│       ├── models/            # Mongoose schemas (User, DailyHydration)
-│       ├── routes/            # Express route endpoints
-│       └── services/          # Business logic services
-└── frontend/                  # Expo SDK 56 React Native Mobile App
-    ├── README.md              # Frontend-specific architecture & UI documentation
-    ├── app.json               # Expo configuration & app metadata
-    ├── package.json           # Frontend dependencies & Expo scripts
-    ├── tsconfig.json          # TypeScript compiler configuration & path aliases
+│       ├── app.js             # Express application and route mounting
+│       ├── config/            # Database connectivity and configuration
+│       ├── controller/        # Request handlers
+│       ├── Middleware/        # Route authentication middleware
+│       ├── models/            # Mongoose schemas (User, DailyHydration, Cycle)
+│       ├── routes/            # Route endpoints
+│       └── services/          # Business logic and calculation engines
+└── frontend/                  # Expo SDK 56 React Native Mobile Client
+    ├── app.json               # Expo application configuration
+    ├── package.json           # Frontend dependencies and scripts
+    ├── tsconfig.json          # TypeScript compiler configuration
     └── src/
-        ├── app/               # Expo Router file-based navigation routes
-        │   ├── _layout.tsx    # Root layout with AuthProvider & nav guard
-        │   ├── index.tsx      # Root route redirect
-        │   ├── (auth)/        # Unauthenticated stack (sign-in, sign-up)
-        │   └── (tabs)/        # Authenticated tab navigation group
-        ├── components/        # Reusable UI components & animations
-        ├── constants/         # Color palettes, themes, and spacing
-        ├── context/           # React Context state management (AuthContext)
-        ├── hooks/             # Custom hooks (color scheme, theme)
-        ├── services/          # Axios API service with dynamic host IP detection
+        ├── app/               # Expo Router file-based routes
+        │   ├── _layout.tsx    # Root layout and navigation providers
+        │   ├── index.tsx      # Entry redirect handler
+        │   ├── (auth)/        # Authentication routes (Sign In, Sign Up)
+        │   ├── (onboarding)/  # Profile initialization routes
+        │   └── (tabs)/        # Authenticated application tabs
+        ├── components/        # Reusable UI elements and animated widgets
+        ├── constants/         # Color palettes, typography, and layout tokens
+        ├── context/           # React Context providers (AuthContext)
+        ├── hooks/             # Custom utility hooks
+        ├── services/          # API services with dynamic host detection
         └── types/             # TypeScript declaration files
 ```
 
 ---
 
-## 🚀 Quick Start Guide
+## Getting Started
 
-### 1. Prerequisites
+### Prerequisites
 - **Node.js**: `v18.0.0` or higher
-- **Expo Go**: Installed on iOS (App Store) or Android (Play Store)
-
-### 2. Environment Setup
-
-#### Backend Setup
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Configure environment variables in `backend/.env`:
-   ```env
-   MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/rovr
-   JWT_SECRET=rovr_super_secret_jwt_key
-   ```
-4. Start the backend development server:
-   ```bash
-   npm run dev
-   ```
-   *The backend will run at `http://localhost:3000` (and on your local network IP).*
-
-#### Frontend Setup
-1. Open a new terminal tab and navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the Expo development server:
-   ```bash
-   npx expo start --clear
-   ```
+- **npm**: `v9.0.0` or higher
+- **Expo Go**: Installed on an iOS or Android device for physical hardware testing
+- **MongoDB**: Active MongoDB Atlas cluster URI or local MongoDB instance
 
 ---
 
-## 📲 Testing on Mobile Device (Wi-Fi or Mobile Hotspot)
+### Installation and Setup
 
-ROVR features **automatic host IP resolution**. You do **not** need to manually hardcode your IP address when connecting via Wi-Fi or Mobile Hotspot!
+#### 1. Clone the Repository
+```bash
+git clone https://github.com/Lumowhisp/ROVR.git
+cd ROVR
+```
 
-1. Connect your **laptop** and **mobile phone** to the same Wi-Fi network or Mobile Hotspot.
-2. Run `npx expo start --clear` in `frontend/`.
-3. Open **Expo Go** on your phone and scan the displayed QR code.
-4. The mobile app automatically detects your laptop's IP address (e.g. `http://10.57.101.37:3000`) and connects to your backend API seamlessly.
+#### 2. Backend Configuration
+```bash
+cd backend
+npm install
+```
+
+Create a `.env` file in the `backend/` directory:
+```env
+MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/rovr
+JWT_SECRET=your_jwt_secret_key
+```
+
+Start the backend development server:
+```bash
+npm run dev
+```
+The server will initialize on port `3000`.
+
+#### 3. Frontend Configuration
+Open a separate terminal window:
+```bash
+cd frontend
+npm install
+npx expo start --clear
+```
 
 ---
 
-## 🛠️ Tech Stack & Libraries
+## Physical Device Testing (Local Network / Hotspot)
 
-### Mobile Client (Frontend)
-- **Framework**: [Expo SDK 56](https://expo.dev) with [Expo Router 56](https://docs.expo.dev/router/introduction/)
-- **UI Library**: [React Native 0.85.3](https://reactnative.dev)
-- **State & Storage**: React Context + [@react-native-async-storage/async-storage](https://react-native-async-storage.github.io/async-storage/)
-- **HTTP Client**: [Axios](https://axios-http.com/)
-- **Animations**: [React Native Reanimated 4](https://docs.swmansion.com/react-native-reanimated/)
-- **Visuals & Gradients**: [expo-linear-gradient](https://docs.expo.dev/versions/latest/sdk/linear-gradient/) & [expo-image](https://docs.expo.dev/versions/latest/sdk/image/)
+ROVR includes automatic host IP resolution. Manual configuration of IP addresses is not required when testing on local networks:
 
-### Backend REST API
-- **Runtime**: [Node.js](https://nodejs.org/) (ES Modules)
-- **Framework**: [Express.js 5.x](https://expressjs.com/)
-- **Database**: [MongoDB](https://www.mongodb.com/) via [Mongoose 9.x](https://mongoosejs.com/)
-- **Authentication**: [JSON Web Tokens (JWT)](https://jwt.io/) & [bcryptjs](https://www.npmjs.com/package/bcryptjs)
-- **Logger**: [Morgan](https://www.npmjs.com/package/morgan)
+1. Ensure the development computer and mobile device are connected to the same Wi-Fi network or mobile hotspot.
+2. Start the Expo server using `npx expo start --clear`.
+3. Scan the generated QR code using **Expo Go** (Android) or the **Camera app** (iOS).
+4. The mobile application detects the host machine's IP address dynamically and communicates with the backend API.
 
 ---
 
-## 📑 License & Contributing
+## Technology Stack
 
-- Distributed under the **MIT License**. See [`LICENSE`](./LICENSE) for full details.
-- Want to contribute? Check out [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+### Mobile Client
+- **Framework**: Expo SDK 56, Expo Router 56
+- **Core Library**: React Native 0.85.3, React 19
+- **State Management**: React Context, `@react-native-async-storage/async-storage`
+- **Networking**: Axios
+- **Animations**: React Native Reanimated 4
+- **Styling and Layout**: Expo Linear Gradient, React Native SVG, Expo Blur
 
+### Backend Service
+- **Runtime**: Node.js (ES Modules)
+- **Framework**: Express.js 5.x
+- **Database**: MongoDB Atlas via Mongoose 9.x
+- **Authentication**: JSON Web Tokens (JWT), bcryptjs
+- **Logging**: Morgan
+
+---
+
+## Verification and Quality Assurance
+
+Execute the following commands to validate code formatting, types, and dependencies:
+
+```bash
+# Frontend Type Checking
+cd frontend
+npm run typecheck
+
+# Frontend Linting
+npm run lint
+
+# Backend Verification
+cd backend
+node server.js
+```
+
+---
+
+## License
+
+Distributed under the MIT License. See [`LICENSE`](./LICENSE) for full terms.
