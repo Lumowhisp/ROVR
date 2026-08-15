@@ -7,9 +7,9 @@ import {
   FacebookAuthProvider,
   signInWithCredential,
   signInWithPopup,
+  // @ts-ignore — expo adapter
+  getReactNativePersistence,
 } from 'firebase/auth';
-// @ts-ignore — expo adapter
-import { getReactNativePersistence } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Crypto from 'expo-crypto';

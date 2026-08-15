@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useEffect, useState } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -12,8 +12,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { useAuth } from "@/context/AuthContext";
 import { profileAPI } from "@/services/api";
-
-const { width } = Dimensions.get("window");
 
 export default function BMIResultScreen() {
   const router = useRouter();
@@ -37,7 +35,7 @@ export default function BMIResultScreen() {
         }
       }).catch(() => {});
     }
-  }, [params.bmi, user?.bmi]);
+  }, [params.bmi, user?.bmi, scaleVal, opacityVal]);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scaleVal.value }],

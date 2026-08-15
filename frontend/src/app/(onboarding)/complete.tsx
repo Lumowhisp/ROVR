@@ -13,7 +13,7 @@ export default function OnboardingCompleteScreen() {
 
   useEffect(() => {
     scale.value = withSpring(1, { damping: 10, stiffness: 100 });
-  }, []);
+  }, [scale]);
 
   const badgeAnim = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],

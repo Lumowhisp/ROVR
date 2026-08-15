@@ -46,11 +46,11 @@ export default function HydrationSetupScreen() {
     }
   };
 
-  const activityOptions: Array<{
+  const activityOptions: {
     level: "Sedentary" | "Moderate" | "Active";
     label: string;
     desc: string;
-  }> = [
+  }[] = [
     { level: "Sedentary", label: "Sedentary", desc: "Desk job, low daily movement" },
     { level: "Moderate", label: "Moderate", desc: "Walking, light workouts 3-4x/wk" },
     { level: "Active", label: "Active", desc: "Intense daily training or physical job" },

@@ -9,7 +9,6 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Dimensions,
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -18,24 +17,17 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withSequence,
-  withSpring,
   FadeIn,
   FadeInDown,
   runOnUI,
 } from 'react-native-reanimated';
-import { Check, ShieldCheck, Eye, EyeOff } from 'lucide-react-native';
+import { Check, Eye, EyeOff } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '@/context/AuthContext';
-
 import { signInWithSocialProvider, SocialProvider } from '@/lib/firebase';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // ROVR Signature Color Palette
 const LIME_GREEN = '#98E527';
-const LIME_GREEN_HOVER = '#85CF1D';
 const BG_DARK = '#08080C';
 const CARD_BG = '#121218';
 const INPUT_BG = '#16161E';
@@ -55,12 +47,7 @@ export default function SignInScreen() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   // Animations
-  const buttonScale = useSharedValue(1);
   const shakeX = useSharedValue(0);
-
-  const buttonAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
 
   const shakeStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: shakeX.value }],
@@ -245,25 +232,20 @@ export default function SignInScreen() {
             </View>
 
             {/* Primary Sign In Button */}
-            <AnimatedPressable
-              onPressIn={() => {
-                'worklet';
-                buttonScale.value = withSpring(0.97, { damping: 15 });
-              }}
-              onPressOut={() => {
-                'worklet';
-                buttonScale.value = withSpring(1, { damping: 15 });
-              }}
+            <Pressable
               onPress={handleSignIn}
               disabled={loading}
-              style={[styles.signInBtn, buttonAnimStyle]}
+              style={({ pressed }) => [
+                styles.signInBtn,
+                { transform: [{ scale: pressed ? 0.97 : 1 }] },
+              ]}
             >
               {loading ? (
                 <ActivityIndicator color="#000000" />
               ) : (
                 <Text style={styles.signInBtnText}>Sign In</Text>
               )}
-            </AnimatedPressable>
+            </Pressable>
 
             {/* "Or" Divider */}
             <View style={styles.dividerRow}>

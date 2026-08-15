@@ -27,7 +27,6 @@ function RootNavigator() {
     if (!navigationState?.key) return;
 
     const inAuthGroup = segments[0] === '(auth)';
-    const inOnboarding = segments[0] === '(onboarding)';
 
     if (!inAuthGroup && !isAuthenticated) {
       router.replace('/(auth)/sign-in' as any);
