@@ -16,7 +16,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 // SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const navigationState = useRootNavigationState();
@@ -27,14 +27,12 @@ function RootNavigator() {
     if (!navigationState?.key) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inOnboarding = segments[0] === '(onboarding)';
 
-    // if (!isAuthenticated && !inAuthGroup) {
-    //   router.replace('/(auth)/sign-in');
-    // } else 
-    if (isAuthenticated && inAuthGroup) {
-      router.replace('/(onboarding)');
+    if (!inAuthGroup && !isAuthenticated) {
+      router.replace('/(auth)/sign-in' as any);
     }
-  }, [isAuthenticated, isLoading, segments, navigationState?.key, router]);
+  }, [isAuthenticated, isLoading, segments, navigationState?.key, router, user]);
 
   if (isLoading || !navigationState?.key) {
     return (

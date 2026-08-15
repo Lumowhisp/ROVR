@@ -18,6 +18,8 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
 
+    dob: Date,
+
     bmi: Number,
 
     weight: Number,
@@ -26,7 +28,18 @@ const userSchema = new mongoose.Schema(
 
     gender: String,
 
+    limitRating: {
+      type: Number,
+      min: 1,
+      max: 10,
+    },
+
     isBMI: {
+      type: Boolean,
+      default: false,
+    },
+
+    isOnboarded: {
       type: Boolean,
       default: false,
     },

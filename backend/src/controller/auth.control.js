@@ -12,30 +12,35 @@ export const signup = async (req, res) => {
       });
     }
     const hashedPass = await bcrypt.hash(password, 10);
-    // console.log(password);
     const user = await User.create({
       name,
       email,
       password: hashedPass,
     });
-    // console.log(hashedPass);
-    const token=jwt.sign(
+    const token = jwt.sign(
       {
-        id:user._id,
-        email:user.email,
+        id: user._id,
+        email: user.email,
       },
       config.JWT_SECRET,
       {
-        expiresIn:"7d",
+        expiresIn: "7d",
       }
-    )
+    );
     res.status(201).json({
       message: "User Created Successfully",
-      user,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        isBMI: user.isBMI,
+        isOnboarded: user.isOnboarded,
+        bmi: user.bmi,
+        limitRating: user.limitRating,
+      },
       token,
     });
     console.log("User Created Successfully");
-   
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -45,7 +50,6 @@ export const signup = async (req, res) => {
 export const signin = async (req, res) => {
   try {
     const { email, password } = req.body;
-    //checking is user exist by email matching
     const user = await User.findOne({ email });
     if (user) {
       const isValid = await bcrypt.compare(password, user.password);
@@ -63,9 +67,18 @@ export const signin = async (req, res) => {
         res.status(200).json({
           message: "User Authenticated",
           token,
+          user: {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            isBMI: user.isBMI,
+            isOnboarded: user.isOnboarded,
+            bmi: user.bmi,
+            limitRating: user.limitRating,
+          },
         });
       } else {
-        console.log("Invalid Credentials")
+        console.log("Invalid Credentials");
         return res.status(401).json({
           message: "Invalid Credentials",
         });

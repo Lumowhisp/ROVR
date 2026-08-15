@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
+  Image,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import Animated, {
   useSharedValue,
@@ -19,74 +19,44 @@ import Animated, {
   withTiming,
   withSequence,
   withSpring,
-  withDelay,
-  Easing,
-  interpolate,
   FadeIn,
+  FadeInDown,
   runOnUI,
 } from 'react-native-reanimated';
+import { Check, ShieldCheck, Eye, EyeOff } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '@/context/AuthContext';
+
+import { signInWithSocialProvider, SocialProvider } from '@/lib/firebase';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+// ROVR Signature Color Palette
+const LIME_GREEN = '#98E527';
+const LIME_GREEN_HOVER = '#85CF1D';
+const BG_DARK = '#08080C';
+const CARD_BG = '#121218';
+const INPUT_BG = '#16161E';
+const BORDER_COLOR = '#232330';
+const TEXT_MUTED = '#8E8E9F';
+
 export default function SignInScreen() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, updateUser } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [emailFocused, setEmailFocused] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   // Animations
   const buttonScale = useSharedValue(1);
   const shakeX = useSharedValue(0);
-  const logoGlow = useSharedValue(0);
-  const field1Anim = useSharedValue(0);
-  const field2Anim = useSharedValue(0);
-  const field3Anim = useSharedValue(0);
-
-  useEffect(() => {
-    // Staggered entrance animation — mutations inside runOnUI are worklet-safe
-    runOnUI(() => {
-      'worklet';
-      field1Anim.value = withDelay(200, withSpring(1, { damping: 20, stiffness: 90 }));
-      field2Anim.value = withDelay(350, withSpring(1, { damping: 20, stiffness: 90 }));
-      field3Anim.value = withDelay(500, withSpring(1, { damping: 20, stiffness: 90 }));
-    })();
-
-    // Pulsing logo glow
-    const startGlow = () => {
-      runOnUI(() => {
-        'worklet';
-        logoGlow.value = withSequence(
-          withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.3, { duration: 2000, easing: Easing.inOut(Easing.ease) })
-        );
-      })();
-    };
-    startGlow();
-    const interval = setInterval(startGlow, 4000);
-    return () => clearInterval(interval);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Each animated style is a direct top-level hook call (Rules of Hooks compliant)
-  const field1Style = useAnimatedStyle(() => ({
-    opacity: field1Anim.value,
-    transform: [{ translateY: interpolate(field1Anim.value, [0, 1], [30, 0]) }],
-  }));
-  const field2Style = useAnimatedStyle(() => ({
-    opacity: field2Anim.value,
-    transform: [{ translateY: interpolate(field2Anim.value, [0, 1], [30, 0]) }],
-  }));
-  const field3Style = useAnimatedStyle(() => ({
-    opacity: field3Anim.value,
-    transform: [{ translateY: interpolate(field3Anim.value, [0, 1], [30, 0]) }],
-  }));
 
   const buttonAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
@@ -94,11 +64,6 @@ export default function SignInScreen() {
 
   const shakeStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: shakeX.value }],
-  }));
-
-  const logoGlowStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(logoGlow.value, [0, 1], [0.3, 1]),
-    textShadowRadius: interpolate(logoGlow.value, [0, 1], [0, 20]),
   }));
 
   const triggerShake = () => {
@@ -115,6 +80,29 @@ export default function SignInScreen() {
     })();
   };
 
+  const handleSocialSignIn = async (provider: SocialProvider) => {
+    setError('');
+    setLoading(true);
+    try {
+      const res = await signInWithSocialProvider(provider);
+      if (res.success && res.user) {
+        await updateUser({
+          _id: res.user.uid,
+          email: res.user.email || '',
+          name: res.user.displayName || 'Athlete',
+        });
+        router.replace('/(onboarding)/gender' as any);
+      }
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Social sign-in failed.';
+      setError(message);
+      triggerShake();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSignIn = async () => {
     if (!email.trim() || !password.trim()) {
       setError('Please fill in all fields');
@@ -127,11 +115,11 @@ export default function SignInScreen() {
 
     try {
       await signIn(email.trim(), password);
-      router.replace('/(tabs)');
+      router.replace('/(onboarding)/gender' as any);
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message || 'Something went wrong. Please try again.';
+          ?.message || 'Invalid email or password. Please try again.';
       setError(message);
       triggerShake();
     } finally {
@@ -139,44 +127,8 @@ export default function SignInScreen() {
     }
   };
 
-  const handlePressIn = () => {
-    runOnUI(() => {
-      'worklet';
-      buttonScale.value = withSpring(0.97, { damping: 15 });
-    })();
-  };
-
-  const handlePressOut = () => {
-    runOnUI(() => {
-      'worklet';
-      buttonScale.value = withSpring(1, { damping: 15 });
-    })();
-  };
-
   return (
     <View style={styles.container}>
-      {/* Background gradient overlay */}
-      <LinearGradient
-        colors={['#0A0A0F', '#0D0D1A', '#0A0A0F']}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Decorative gradient orbs */}
-      <View style={styles.orbContainer}>
-        <LinearGradient
-          colors={['#6C63FF20', '#6C63FF05', 'transparent']}
-          style={[styles.orb, styles.orbTopRight]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        />
-        <LinearGradient
-          colors={['#00D4FF15', '#00D4FF05', 'transparent']}
-          style={[styles.orb, styles.orbBottomLeft]}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0, y: 1 }}
-        />
-      </View>
-
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -186,137 +138,198 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Logo / Branding */}
-          <Animated.View
-            entering={FadeIn.duration(800)}
-            style={styles.brandingContainer}
-          >
-            <Animated.Text style={[styles.logoText, logoGlowStyle]}>
-              ROVR
-            </Animated.Text>
-            <Text style={styles.tagline}>Your Fitness Journey Starts Here</Text>
+          {/* Top Logo / Shield Badge */}
+          <Animated.View entering={FadeInDown.duration(600)} style={styles.header}>
+            <View style={styles.logoBadgeOuter}>
+              <View style={styles.logoBadgeInner}>
+                <Image
+                  source={require('@/assets/logo/logo.png')}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
+              </View>
+            </View>
+
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Log in to your account to continue.</Text>
           </Animated.View>
 
           {/* Form */}
           <Animated.View style={[styles.formContainer, shakeStyle]}>
-            <Animated.Text
-              entering={FadeIn.delay(100).duration(500)}
-              style={styles.formTitle}
-            >
-              Welcome Back
-            </Animated.Text>
-            <Animated.Text
-              entering={FadeIn.delay(150).duration(500)}
-              style={styles.formSubtitle}
-            >
-              Sign in to continue your journey
-            </Animated.Text>
-
-            {/* Error Message */}
+            {/* Error Banner */}
             {error !== '' && (
-              <Animated.View
-                entering={FadeIn.duration(300)}
-                style={styles.errorContainer}
-              >
+              <Animated.View entering={FadeIn.duration(300)} style={styles.errorBanner}>
                 <Text style={styles.errorText}>{error}</Text>
               </Animated.View>
             )}
 
-            {/* Email Input */}
-            <Animated.View style={[styles.inputWrapper, field1Style]}>
+            {/* Email Field */}
+            <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
               <View
                 style={[
-                  styles.inputContainer,
-                  emailFocused && styles.inputContainerFocused,
+                  styles.inputWrap,
+                  focusedField === 'email' && styles.inputWrapFocused,
                 ]}
               >
                 <TextInput
                   style={styles.input}
-                  placeholder="you@example.com"
-                  placeholderTextColor="#6B728080"
+                  placeholder="Enter your email"
+                  placeholderTextColor="#5A5A6E"
                   value={email}
                   onChangeText={setEmail}
-                  onFocus={() => setEmailFocused(true)}
-                  onBlur={() => setEmailFocused(false)}
+                  onFocus={() => setFocusedField('email')}
+                  onBlur={() => setFocusedField(null)}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
                   editable={!loading}
                 />
               </View>
-            </Animated.View>
+            </View>
 
-            {/* Password Input */}
-            <Animated.View style={[styles.inputWrapper, field2Style]}>
+            {/* Password Field */}
+            <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Password</Text>
               <View
                 style={[
-                  styles.inputContainer,
-                  passwordFocused && styles.inputContainerFocused,
+                  styles.inputWrap,
+                  focusedField === 'password' && styles.inputWrapFocused,
                 ]}
               >
                 <TextInput
-                  style={styles.input}
-                  placeholder="••••••••"
-                  placeholderTextColor="#6B728080"
+                  style={[styles.input, { paddingRight: 45 }]}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#5A5A6E"
                   value={password}
                   onChangeText={setPassword}
-                  onFocus={() => setPasswordFocused(true)}
-                  onBlur={() => setPasswordFocused(false)}
-                  secureTextEntry
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
+                  secureTextEntry={!showPassword}
                   editable={!loading}
                 />
-              </View>
-            </Animated.View>
-
-            {/* Sign In Button */}
-            <Animated.View style={[field3Style, { marginTop: 8 }]}>
-              <AnimatedPressable
-                onPressIn={handlePressIn}
-                onPressOut={handlePressOut}
-                onPress={handleSignIn}
-                disabled={loading}
-                style={buttonAnimStyle}
-              >
-                <LinearGradient
-                  colors={loading ? ['#4A4580', '#0090B0'] : ['#6C63FF', '#00D4FF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.signInButton}
+                <Pressable
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeBtn}
+                  hitSlop={10}
                 >
-                  {loading ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  {showPassword ? (
+                    <EyeOff size={19} color="#7E7E94" />
                   ) : (
-                    <Text style={styles.signInButtonText}>Sign In</Text>
+                    <Eye size={19} color="#7E7E94" />
                   )}
-                </LinearGradient>
-              </AnimatedPressable>
-            </Animated.View>
+                </Pressable>
+              </View>
+            </View>
 
-            {/* Divider */}
-            <Animated.View
-              entering={FadeIn.delay(600).duration(500)}
-              style={styles.dividerContainer}
-            >
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </Animated.View>
-
-            {/* Sign Up Link */}
-            <Animated.View
-              entering={FadeIn.delay(700).duration(500)}
-              style={styles.switchContainer}
-            >
-              <Text style={styles.switchText}>Don&apos;t have an account? </Text>
+            {/* Remember Me & Forgot Password */}
+            <View style={styles.optionsRow}>
               <Pressable
-                onPress={() => router.push('/(auth)/sign-up')}
+                style={styles.rememberWrap}
+                onPress={() => setRememberMe(!rememberMe)}
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    rememberMe && styles.checkboxActive,
+                  ]}
+                >
+                  {rememberMe && <Check size={12} color="#000000" strokeWidth={3.5} />}
+                </View>
+                <Text style={styles.rememberText}>Remember me</Text>
+              </Pressable>
+
+              <Pressable onPress={() => {}}>
+                <Text style={styles.forgotText}>Forgot Password?</Text>
+              </Pressable>
+            </View>
+
+            {/* Primary Sign In Button */}
+            <AnimatedPressable
+              onPressIn={() => {
+                'worklet';
+                buttonScale.value = withSpring(0.97, { damping: 15 });
+              }}
+              onPressOut={() => {
+                'worklet';
+                buttonScale.value = withSpring(1, { damping: 15 });
+              }}
+              onPress={handleSignIn}
+              disabled={loading}
+              style={[styles.signInBtn, buttonAnimStyle]}
+            >
+              {loading ? (
+                <ActivityIndicator color="#000000" />
+              ) : (
+                <Text style={styles.signInBtnText}>Sign In</Text>
+              )}
+            </AnimatedPressable>
+
+            {/* "Or" Divider */}
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>Or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Social Icons Row */}
+            <View style={styles.socialRow}>
+              {/* Google */}
+              <Pressable
+                style={styles.socialBtn}
+                onPress={() => handleSocialSignIn('google')}
                 disabled={loading}
               >
-                <Text style={styles.switchLink}>Create Account</Text>
+                <Svg width={20} height={20} viewBox="0 0 24 24">
+                  <Path
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    fill="#4285F4"
+                  />
+                  <Path
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    fill="#34A853"
+                  />
+                  <Path
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                    fill="#FBBC05"
+                  />
+                  <Path
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                    fill="#EA4335"
+                  />
+                </Svg>
               </Pressable>
-            </Animated.View>
+
+              {/* Apple */}
+              <Pressable
+                style={styles.socialBtn}
+                onPress={() => handleSocialSignIn('apple')}
+                disabled={loading}
+              >
+                <Svg width={20} height={20} viewBox="0 0 24 24" fill="#FFFFFF">
+                  <Path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.36c.63-.78 1.06-1.85.94-2.93-.93.04-2.03.62-2.68 1.38-.58.66-1.08 1.74-.94 2.8 1.03.08 2.07-.49 2.68-1.25z" />
+                </Svg>
+              </Pressable>
+
+              {/* Facebook */}
+              <Pressable
+                style={styles.socialBtn}
+                onPress={() => handleSocialSignIn('facebook')}
+                disabled={loading}
+              >
+                <Svg width={20} height={20} viewBox="0 0 24 24" fill="#1877F2">
+                  <Path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                </Svg>
+              </Pressable>
+            </View>
+
+            {/* Bottom Link */}
+            <View style={styles.bottomSwitchRow}>
+              <Text style={styles.switchPrompt}>Don&apos;t have an account? </Text>
+              <Pressable onPress={() => router.push('/(auth)/sign-up')}>
+                <Text style={styles.switchLink}>Sign Up</Text>
+              </Pressable>
+            </View>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -327,7 +340,7 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0F',
+    backgroundColor: BG_DARK,
   },
   flex: {
     flex: 1,
@@ -335,169 +348,198 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 60,
+    paddingHorizontal: 28,
+    paddingVertical: 50,
   },
-  orbContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    overflow: 'hidden',
-  },
-  orb: {
-    position: 'absolute',
-    width: SCREEN_WIDTH * 0.8,
-    height: SCREEN_WIDTH * 0.8,
-    borderRadius: SCREEN_WIDTH * 0.4,
-  },
-  orbTopRight: {
-    top: -SCREEN_WIDTH * 0.3,
-    right: -SCREEN_WIDTH * 0.2,
-  },
-  orbBottomLeft: {
-    bottom: -SCREEN_WIDTH * 0.3,
-    left: -SCREEN_WIDTH * 0.3,
-  },
-
-  // Branding
-  brandingContainer: {
+  header: {
     alignItems: 'center',
-    marginBottom: 48,
-  },
-  logoText: {
-    fontSize: 56,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 8,
-    textShadowColor: '#6C63FF',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
-  },
-  tagline: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 8,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-  },
-
-  // Form
-  formContainer: {
-    width: '100%',
-    maxWidth: 400,
-    alignSelf: 'center',
-  },
-  formTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  formSubtitle: {
-    fontSize: 15,
-    color: '#6B7280',
     marginBottom: 32,
   },
-
-  // Error
-  errorContainer: {
-    backgroundColor: '#FF4D6A15',
-    borderWidth: 1,
-    borderColor: '#FF4D6A30',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  logoBadgeOuter: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(152, 229, 39, 0.1)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(152, 229, 39, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 20,
+  },
+  logoBadgeInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: 44,
+    height: 44,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+    marginBottom: 6,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: TEXT_MUTED,
+  },
+  formContainer: {
+    width: '100%',
+    maxWidth: 380,
+    alignSelf: 'center',
+  },
+  errorBanner: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 16,
   },
   errorText: {
-    color: '#FF4D6A',
+    color: '#F87171',
     fontSize: 13,
     fontWeight: '500',
+    textAlign: 'center',
   },
-
-  // Input
-  inputWrapper: {
-    marginBottom: 20,
+  inputGroup: {
+    marginBottom: 18,
   },
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#B0B4BA',
+    color: '#E0E0EC',
     marginBottom: 8,
-    letterSpacing: 0.5,
   },
-  inputContainer: {
-    backgroundColor: '#12121A',
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: INPUT_BG,
     borderWidth: 1.5,
-    borderColor: '#1E1E2E',
+    borderColor: BORDER_COLOR,
     borderRadius: 14,
     overflow: 'hidden',
   },
-  inputContainerFocused: {
-    borderColor: '#6C63FF60',
-    shadowColor: '#6C63FF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 4,
+  inputWrapFocused: {
+    borderColor: LIME_GREEN,
+    backgroundColor: '#181822',
   },
   input: {
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    fontSize: 16,
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    fontSize: 15,
     color: '#FFFFFF',
   },
-
-  // Button
-  signInButton: {
-    paddingVertical: 17,
-    borderRadius: 14,
+  eyeBtn: {
+    position: 'absolute',
+    right: 14,
+    padding: 4,
+  },
+  optionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 2,
+    marginBottom: 24,
+  },
+  rememberWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: BORDER_COLOR,
+    backgroundColor: INPUT_BG,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#6C63FF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+  },
+  checkboxActive: {
+    backgroundColor: LIME_GREEN,
+    borderColor: LIME_GREEN,
+  },
+  rememberText: {
+    fontSize: 13,
+    color: TEXT_MUTED,
+  },
+  forgotText: {
+    fontSize: 13,
+    color: LIME_GREEN,
+    fontWeight: '600',
+  },
+  signInBtn: {
+    backgroundColor: LIME_GREEN,
+    borderRadius: 16,
+    paddingVertical: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: LIME_GREEN,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
     shadowRadius: 12,
     elevation: 6,
   },
-  signInButtonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  signInBtnText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
-
-  // Divider
-  dividerContainer: {
+  dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 28,
+    marginVertical: 24,
+    gap: 12,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#1E1E2E',
+    backgroundColor: BORDER_COLOR,
   },
   dividerText: {
-    color: '#6B7280',
+    color: '#65657A',
     fontSize: 13,
-    marginHorizontal: 16,
+    fontWeight: '500',
   },
-
-  // Switch (sign up link)
-  switchContainer: {
+  socialRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    marginBottom: 30,
+  },
+  socialBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: CARD_BG,
+    borderWidth: 1.2,
+    borderColor: BORDER_COLOR,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomSwitchRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  switchText: {
-    color: '#6B7280',
+  switchPrompt: {
+    color: TEXT_MUTED,
     fontSize: 14,
   },
   switchLink: {
-    color: '#6C63FF',
+    color: LIME_GREEN,
     fontSize: 14,
     fontWeight: '700',
   },

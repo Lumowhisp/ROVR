@@ -55,4 +55,41 @@ export const authAPI = {
   },
 };
 
+// Onboarding API calls
+export const onboardAPI = {
+  submitProfile: async (data: {
+    weight: number;
+    height: number;
+    gender: string;
+    dob?: string;
+  }) => {
+    const response = await api.post('/api/onboard', data);
+    return response.data;
+  },
+
+  submitLimitRating: async (limitRating: number) => {
+    const response = await api.post('/api/onboard/limit-rating', {
+      limitRating,
+    });
+    return response.data;
+  },
+
+  setupHydration: async (data: {
+    wakeTime: string;
+    sleepTime: string;
+    activityLevel: 'Sedentary' | 'Moderate' | 'Active';
+  }) => {
+    const response = await api.post('/api/hydration/setup', data);
+    return response.data;
+  },
+};
+
+// Profile API calls
+export const profileAPI = {
+  getBMI: async () => {
+    const response = await api.get('/api/services/profile/getBMI');
+    return response.data;
+  },
+};
+
 export default api;

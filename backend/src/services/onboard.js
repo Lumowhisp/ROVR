@@ -5,7 +5,7 @@ function compute(weight, height) {
 }
 export const onBoard = async (req, res) => {
   try {
-    const { weight, height, gender } = req.body;
+    const { weight, height, gender, dob } = req.body;
     if (!weight || !height || !gender) {
       console.log("Input Error");
       return res.status(400).json({
@@ -27,24 +27,42 @@ export const onBoard = async (req, res) => {
     }
     const bmi = Number(compute(weight, height).toFixed(2));
 
-    const updatedUser=await User.findByIdAndUpdate(
+    const updateData = {
+      weight,
+      height,
+      gender,
+      isBMI: true,
+      bmi,
+    };
+
+    if (dob) {
+      updateData.dob = new Date(dob);
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
-      {
-        weight,
-        height,
-        gender,
-        isBMI: true,
-        bmi,
-      },
+      updateData,
       {
         new: true,
       }
     );
-    console.log(updatedUser.bmi)
+    console.log(updatedUser.bmi);
     res.status(200).json({
       success: true,
-      message: "BMI calculated Succesfully",
+      message: "BMI calculated Successfully",
       bmi,
+      user: {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        isBMI: updatedUser.isBMI,
+        isOnboarded: updatedUser.isOnboarded,
+        bmi: updatedUser.bmi,
+        weight: updatedUser.weight,
+        height: updatedUser.height,
+        gender: updatedUser.gender,
+        limitRating: updatedUser.limitRating,
+      },
     });
   
   } catch (error) {

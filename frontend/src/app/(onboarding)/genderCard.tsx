@@ -8,6 +8,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Check } from "lucide-react-native";
+import { useRouter } from "expo-router";
 
 const ACCENT = "#6C5CE7";
 const { width } = Dimensions.get("window");
@@ -84,6 +85,15 @@ function GenderTile({
 
 export default function GenderCard() {
   const [selectedGender, setSelectedGender] = useState<string | null>(null);
+  const router = useRouter();
+
+  const handleContinue = () => {
+    if (!selectedGender) return;
+    router.push({
+      pathname: "/(onboarding)/BirthdayScreen/BirthDay",
+      params: { gender: selectedGender },
+    });
+  };
 
   return (
     <View style={styles.container}>
@@ -105,6 +115,7 @@ export default function GenderCard() {
 
       <Pressable
         disabled={!selectedGender}
+        onPress={handleContinue}
         style={[styles.continueBtn, { opacity: selectedGender ? 1 : 0.35 }]}
       >
         <Text style={styles.continueText}>Continue</Text>

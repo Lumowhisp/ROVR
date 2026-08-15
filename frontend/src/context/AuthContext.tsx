@@ -16,6 +16,14 @@ interface User {
   _id: string;
   name: string;
   email: string;
+  isBMI?: boolean;
+  isOnboarded?: boolean;
+  bmi?: number;
+  weight?: number;
+  height?: number;
+  gender?: string;
+  dob?: string;
+  limitRating?: number;
 }
 
 interface AuthState {
@@ -29,6 +37,7 @@ interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  updateUser: (userData: Partial<User>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -70,10 +79,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const data = await authAPI.signIn(email, password);
-    const { token } = data;
+    const { token, user: userData } = data;
 
-    // The signin endpoint doesn't return user data, so store email
-    const user: User = { _id: '', name: '', email };
+    const user: User = {
+      _id: userData._id,
+      name: userData.name,
+      email: userData.email,
+      isBMI: userData.isBMI,
+      isOnboarded: userData.isOnboarded,
+      bmi: userData.bmi,
+      limitRating: userData.limitRating,
+    };
 
     await Promise.all([
       AsyncStorage.setItem(TOKEN_KEY, token),
@@ -97,6 +113,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         _id: userData._id,
         name: userData.name,
         email: userData.email,
+        isBMI: userData.isBMI,
+        isOnboarded: userData.isOnboarded,
+        bmi: userData.bmi,
+        limitRating: userData.limitRating,
       };
 
       await Promise.all([
@@ -128,14 +148,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const updateUser = useCallback(async (userData: Partial<User>) => {
+    setState((prev) => {
+      if (!prev.user) return prev;
+      const updatedUser = { ...prev.user, ...userData };
+      // Persist updated user to storage (fire-and-forget)
+      AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+      return { ...prev, user: updatedUser };
+    });
+  }, []);
+
   const value = useMemo(
     () => ({
       ...state,
       signIn,
       signUp,
       signOut,
+      updateUser,
     }),
-    [state, signIn, signUp, signOut]
+    [state, signIn, signUp, signOut, updateUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
