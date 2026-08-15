@@ -57,7 +57,9 @@ function GenderTile({
 
   return (
     <Pressable
+      // eslint-disable-next-line react-hooks/immutability
       onPressIn={() => (scale.value = withSpring(0.97, { damping: 15 }))}
+      // eslint-disable-next-line react-hooks/immutability
       onPressOut={() => (scale.value = withSpring(1, { damping: 15 }))}
       onPress={onPress}
       style={{ width: TILE_WIDTH }}
@@ -90,7 +92,7 @@ export default function GenderCard() {
   return (
     <View style={styles.container}>
       <View>
-        <Text style={styles.title}>What's your gender?</Text>
+        <Text style={styles.title}>What&apos;s your gender?</Text>
         <Text style={styles.subtitle}>
           This helps us personalize your plan
         </Text>

@@ -24,6 +24,7 @@ export default function HeightSelector() {
   }));
 
   const pulse = () => {
+    // eslint-disable-next-line react-hooks/immutability
     bump.value = withSpring(1.15, { damping: 8 }, () => {
       bump.value = withSpring(1);
     });
