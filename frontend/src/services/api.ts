@@ -4,12 +4,16 @@ import Constants from 'expo-constants';
 
 // Automatically detect host IP from Expo manifest (works on Mobile Hotspot, Wi-Fi, etc.)
 const getBaseUrl = () => {
-  const hostUri = Constants.expoConfig?.hostUri;
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as unknown as { expoGoConfig?: { debuggerHost?: string } }).expoGoConfig?.debuggerHost ||
+    (Constants as unknown as { manifest?: { debuggerHost?: string } }).manifest?.debuggerHost;
+
   if (hostUri) {
     const ip = hostUri.split(':')[0];
     return `http://${ip}:3000`;
   }
-  return 'http://10.57.101.37:3000';
+  return 'http://10.50.74.37:3000';
 };
 
 const BASE_URL = getBaseUrl();
