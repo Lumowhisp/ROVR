@@ -7,6 +7,7 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import { Minus, Plus, ChevronRight } from "lucide-react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 const BG = "#2A1810";
 const CIRCLE_BG = "#7A3B2E";
@@ -18,16 +19,19 @@ const MAX_HEIGHT = 220;
 export default function HeightSelector() {
   const [heightCm, setHeightCm] = useState(162);
   const bump = useSharedValue(1);
+  const router = useRouter();
+  const { gender, dob } = useLocalSearchParams<{ gender: string; dob: string }>();
 
   const numberStyle = useAnimatedStyle(() => ({
     transform: [{ scale: bump.value }],
   }));
 
   const pulse = () => {
-    // eslint-disable-next-line react-hooks/immutability
-    bump.value = withSpring(1.15, { damping: 8 }, () => {
-      bump.value = withSpring(1);
-    });
+    bump.set(
+      withSpring(1.15, { damping: 8 }, () => {
+        bump.set(withSpring(1));
+      })
+    );
   };
 
   const adjust = (delta: number) => {
@@ -35,6 +39,17 @@ export default function HeightSelector() {
       Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, prev + delta))
     );
     pulse();
+  };
+
+  const handleContinue = () => {
+    router.push({
+      pathname: "/(onboarding)/WeightScreen/Weight",
+      params: {
+        gender: gender || "",
+        dob: dob || "",
+        height: heightCm.toString(),
+      },
+    });
   };
 
   return (
@@ -84,7 +99,7 @@ export default function HeightSelector() {
       </View>
 
       {/* CTA */}
-      <Pressable style={styles.ctaButton}>
+      <Pressable style={styles.ctaButton} onPress={handleContinue}>
         <Text style={styles.ctaText}>Continue</Text>
         <View style={styles.ctaIconWrap}>
           <ChevronRight size={18} color={BG} strokeWidth={2.5} />

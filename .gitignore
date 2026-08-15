@@ -6,3 +6,10 @@ credentials/
 # OS
 .DS_Store
 Thumbs.db
+
+# Config & secrets
+*.env
+*.env.local
+.env
+.env.local
+google-services.json

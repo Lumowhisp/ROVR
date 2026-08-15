@@ -1,6 +1,5 @@
 import { View, Text, Pressable, StyleSheet, Dimensions } from "react-native";
-import { useState } from "react";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import LottieView from "lottie-react-native";
 import Animated, {
   useSharedValue,
@@ -9,6 +8,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Check } from "lucide-react-native";
+import { useRouter } from "expo-router";
 
 const ACCENT = "#6C5CE7";
 const { width } = Dimensions.get("window");
@@ -26,41 +26,38 @@ const genders = [
 ];
 
 function GenderTile({
-    gender,
-    isSelected,
-    onPress,
-  }: {
-    gender: (typeof genders)[number];
-    isSelected: boolean;
-    onPress: () => void;
-  }) {
-    const scale = useSharedValue(1);
-    const selectProgress = useSharedValue(isSelected ? 1 : 0);
-  
-    useEffect(() => {
-      selectProgress.value = withTiming(isSelected ? 1 : 0, { duration: 200 });
-    }, [isSelected]);
-  
-    const cardStyle = useAnimatedStyle(() => ({
-      transform: [{ scale: scale.value }],
-      borderColor: isSelected ? ACCENT : "rgba(255,255,255,0.08)",
-      backgroundColor: isSelected
-        ? "rgba(108,92,231,0.14)"
-        : "rgba(255,255,255,0.04)",
-    }));
-  
-    const badgeStyle = useAnimatedStyle(() => ({
-      opacity: selectProgress.value,
-      transform: [{ scale: 0.6 + selectProgress.value * 0.4 }],
-    }));
+  gender,
+  isSelected,
+  onPress,
+}: {
+  gender: (typeof genders)[number];
+  isSelected: boolean;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const selectProgress = useSharedValue(isSelected ? 1 : 0);
 
+  useEffect(() => {
+    selectProgress.value = withTiming(isSelected ? 1 : 0, { duration: 200 });
+  }, [isSelected, selectProgress]);
+
+  const cardStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    borderColor: isSelected ? ACCENT : "rgba(255,255,255,0.08)",
+    backgroundColor: isSelected
+      ? "rgba(108,92,231,0.14)"
+      : "rgba(255,255,255,0.04)",
+  }));
+
+  const badgeStyle = useAnimatedStyle(() => ({
+    opacity: selectProgress.value,
+    transform: [{ scale: 0.6 + selectProgress.value * 0.4 }],
+  }));
 
   return (
     <Pressable
-      // eslint-disable-next-line react-hooks/immutability
-      onPressIn={() => (scale.value = withSpring(0.97, { damping: 15 }))}
-      // eslint-disable-next-line react-hooks/immutability
-      onPressOut={() => (scale.value = withSpring(1, { damping: 15 }))}
+      onPressIn={() => scale.set(withSpring(0.97, { damping: 15 }))}
+      onPressOut={() => scale.set(withSpring(1, { damping: 15 }))}
       onPress={onPress}
       style={{ width: TILE_WIDTH }}
     >
@@ -88,14 +85,21 @@ function GenderTile({
 
 export default function GenderCard() {
   const [selectedGender, setSelectedGender] = useState<string | null>(null);
+  const router = useRouter();
+
+  const handleContinue = () => {
+    if (!selectedGender) return;
+    router.push({
+      pathname: "/(onboarding)/BirthdayScreen/BirthDay",
+      params: { gender: selectedGender },
+    });
+  };
 
   return (
     <View style={styles.container}>
       <View>
         <Text style={styles.title}>What&apos;s your gender?</Text>
-        <Text style={styles.subtitle}>
-          This helps us personalize your plan
-        </Text>
+        <Text style={styles.subtitle}>This helps us personalize your plan</Text>
       </View>
 
       <View style={styles.row}>
@@ -111,6 +115,7 @@ export default function GenderCard() {
 
       <Pressable
         disabled={!selectedGender}
+        onPress={handleContinue}
         style={[styles.continueBtn, { opacity: selectedGender ? 1 : 0.35 }]}
       >
         <Text style={styles.continueText}>Continue</Text>
