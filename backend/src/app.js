@@ -3,6 +3,7 @@ import morgan from "morgan";
 import authRoutes from "./routes/auth.route.js";
 import onboardRoutes from "./routes/onboard.route.js";
 import profileRoutes from "./routes/profile.route.js";
+import stepsRoutes from "./routes/steps.route.js";
 import limitRatingRoutes from "./routes/limitRating.route.js";
 import hydrationRoutes from "./routes/hydration.route.js";
 
@@ -28,4 +29,7 @@ app.use("/api/services/profile", (req, res, next) => {
 
 app.use("/api/services/profile", profileRoutes);
 console.log("profileRoutes =", profileRoutes);
+
+app.use("/api/services/steps", stepsRoutes);
+
 export default app;
