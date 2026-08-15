@@ -61,6 +61,15 @@ const userSchema = new mongoose.Schema(
         default: "Moderate",
       },
     },
+
+    age: Number,
+
+    stride_length: Number,
+
+    daily_step_goal: {
+      type: Number,
+      default: 10000,
+    },
   },
   {
     timestamps: true,
