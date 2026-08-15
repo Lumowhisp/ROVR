@@ -3,6 +3,9 @@ import morgan from "morgan";
 import authRoutes from "./routes/auth.route.js";
 import onboardRoutes from "./routes/onboard.route.js";
 import profileRoutes from "./routes/profile.route.js";
+import limitRatingRoutes from "./routes/limitRating.route.js";
+import hydrationRoutes from "./routes/hydration.route.js";
+
 const app = express();
 app.use(morgan("dev"));
 app.use(express.json());
@@ -15,6 +18,8 @@ app.get("/name", (req, res) => {
 });
 app.use("/api/auth", authRoutes);
 app.use("/api/onboard", onboardRoutes);
+app.use("/api/onboard", limitRatingRoutes);
+app.use("/api/hydration", hydrationRoutes);
 
 app.use("/api/services/profile", (req, res, next) => {
   console.log("Profile middleware hit:", req.method, req.originalUrl);

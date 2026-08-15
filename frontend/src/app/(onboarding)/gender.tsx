@@ -1,5 +1,4 @@
 import { View } from "react-native";
-import Heading from "./heading";
 import GenderCard from "./genderCard";
 
 export default function GenderScreen() {
@@ -7,13 +6,10 @@ export default function GenderScreen() {
     <View
       style={{
         flex: 1,
-        backgroundColor: "#000000",
-        justifyContent: "center",
-        alignItems: "center",
+        backgroundColor: "#0A0A0F",
       }}
     >
-      <Heading/>
-      <GenderCard/>
+      <GenderCard />
     </View>
   );
 }
