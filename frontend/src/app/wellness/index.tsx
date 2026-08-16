@@ -40,31 +40,45 @@ export default function WellnessDashboard() {
     const [current, setCurrent] = useState<CurrentCycleData | null>(null);
     const [recommendations, setRecommendations] = useState<Recommendations | null>(null);
 
-    const load = useCallback(async () => {
-        try {
-            const res = await wellnessAPI.getCurrentCycle();
-            setCurrent(res.data);
-            setHasCycle(true);
-
-            try {
-                const recRes = await wellnessAPI.getRecommendations();
-                setRecommendations(recRes.data.recommendations);
-            } catch {
-                setRecommendations(null);
-            }
-        } catch (err: unknown) {
-            const status = (err as { response?: { status?: number } })?.response?.status;
-            if (status === 404) {
-                setHasCycle(false);
-            }
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
     useEffect(() => {
-        load();
-    }, [load]);
+        let isMounted = true;
+
+        const fetchData = async () => {
+            try {
+                const res = await wellnessAPI.getCurrentCycle();
+                if (isMounted) {
+                    setCurrent(res.data);
+                    setHasCycle(true);
+                }
+
+                try {
+                    const recRes = await wellnessAPI.getRecommendations();
+                    if (isMounted) {
+                        setRecommendations(recRes.data.recommendations);
+                    }
+                } catch {
+                    if (isMounted) {
+                        setRecommendations(null);
+                    }
+                }
+            } catch (err: unknown) {
+                const status = (err as { response?: { status?: number } })?.response?.status;
+                if (status === 404 && isMounted) {
+                    setHasCycle(false);
+                }
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        fetchData();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     if (loading) {
         return (
