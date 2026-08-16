@@ -89,8 +89,11 @@ export default function OnboardingCompleteScreen() {
         <Pressable
           style={styles.startBtn}
           onPress={() => {
-            // Can route to tabs or dashboard when available
-            router.replace("/(onboarding)/bmi-result" as any);
+            // TODO: route to (tabs) dashboard once it exists. Routing to
+            // Wellness for now since it's the only real post-onboarding
+            // destination — this replaces a previous loop back into
+            // bmi-result, which was a dead end, not a working dashboard.
+            router.replace("/wellness" as any);
           }}
         >
           <LinearGradient

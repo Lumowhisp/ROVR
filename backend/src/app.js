@@ -6,6 +6,7 @@ import profileRoutes from "./routes/profile.route.js";
 import stepsRoutes from "./routes/steps.route.js";
 import limitRatingRoutes from "./routes/limitRating.route.js";
 import hydrationRoutes from "./routes/hydration.route.js";
+import wellnessRoutes from "./routes/wellness.route.js";
 
 const app = express();
 app.use(morgan("dev"));
@@ -31,5 +32,6 @@ app.use("/api/services/profile", profileRoutes);
 console.log("profileRoutes =", profileRoutes);
 
 app.use("/api/services/steps", stepsRoutes);
+app.use("/api/wellness", wellnessRoutes);
 
 export default app;

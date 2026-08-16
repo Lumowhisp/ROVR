@@ -6,17 +6,17 @@ Comprehensive task tracker for building the **ROVR Women's Wellness Companion** 
 
 ## 👥 Team & Role Assignments
 
-| Member Name | Role | Phase Responsibilities |
-|---|---|---|
-| **Aditya** (`@Lumowhisp`) | **Lead Architect** | System Design, Auth Integration, API Interceptors |
-| *[ Team Member 1 ]* | **Database & Backend Lead** | Phase 1 (Mongoose Schemas) & Phase 2 (Prediction Engine & REST APIs) |
-| *[ Team Member 2 ]* | **Frontend Mobile UI Lead** | Phase 3 (Cycle Calendar, Symptom Tracker Modal & Recommendations) |
-| *[ Team Member 3 ]* | **Gamification Specialist** | Phase 4 (XP Rewards Logic & Hydration/Nutrition Integration) |
-| *[ Team Member 4 ]* | **Security & Privacy Lead** | Phase 5 (Push Notifications) & Phase 6 (Data Encryption & Consent) |
+| Member Name               | Role                        | Phase Responsibilities                                               |
+| ------------------------- | --------------------------- | -------------------------------------------------------------------- |
+| **Aditya** (`@Lumowhisp`) | **Lead Architect**          | System Design, Auth Integration, API Interceptors                    |
+| _[ Team Member 1 ]_       | **Database & Backend Lead** | Phase 1 (Mongoose Schemas) & Phase 2 (Prediction Engine & REST APIs) |
+| _[ Abhishek Binwal ]_     | **Frontend Mobile UI Lead** | Phase 3 (Cycle Calendar, Symptom Tracker Modal & Recommendations)    |
+| \*\*                      | **Gamification Specialist** | Phase 4 (XP Rewards Logic & Hydration/Nutrition Integration)         |
+| _[ Team Member 4 ]_       | **Security & Privacy Lead** | Phase 5 (Push Notifications) & Phase 6 (Data Encryption & Consent)   |
 
 ---
 
-##  Phase 1: Database & Mongoose Schemas (`backend/src/models`)
+## Phase 1: Database & Mongoose Schemas (`backend/src/models`)
 
 - [ ] **1.1 Cycle Schema (`cycle.model.js`)**
   - [ ] Define `userId` (ObjectId ref User, required, indexed)
@@ -47,7 +47,7 @@ Comprehensive task tracker for building the **ROVR Women's Wellness Companion** 
 
 ---
 
-##  Phase 2: Backend Logic & API Routes (`backend/src/`)
+## Phase 2: Backend Logic & API Routes (`backend/src/`)
 
 - [ ] **2.1 Cycle Prediction Engine (`backend/src/services/cycleEngine.js`)**
   - [ ] Calculate current phase (`Menstrual`, `Follicular`, `Ovulation`, `Luteal`) based on cycle start and average length
@@ -72,7 +72,7 @@ Comprehensive task tracker for building the **ROVR Women's Wellness Companion** 
 
 ---
 
-##  Phase 3: Frontend Expo UI Components (`frontend/src/`)
+## Phase 3: Frontend Expo UI Components (`frontend/src/`)
 
 - [ ] **3.1 Cycle Navigation & Dashboard Screen (`app/(tabs)/wellness.tsx`)**
   - [ ] Phase status wheel / progress indicator with current phase badge
@@ -108,7 +108,7 @@ Comprehensive task tracker for building the **ROVR Women's Wellness Companion** 
 
 ---
 
-##  Phase 4: XP Gamification Integration (`frontend/src/context/` & `backend/src/services/`)
+## Phase 4: XP Gamification Integration (`frontend/src/context/` & `backend/src/services/`)
 
 - [ ] **4.1 XP Reward Triggers**
   - [ ] Award **+5 XP** on daily symptom log completion
@@ -119,7 +119,7 @@ Comprehensive task tracker for building the **ROVR Women's Wellness Companion** 
 
 ---
 
-##  Phase 5: Push Notifications & Reminders
+## Phase 5: Push Notifications & Reminders
 
 - [ ] **5.1 Notification Triggers (`expo-notifications`)**
   - [ ] Remind "Period expected tomorrow"
@@ -130,7 +130,7 @@ Comprehensive task tracker for building the **ROVR Women's Wellness Companion** 
 
 ---
 
-##  Phase 6: Privacy, Data Security & Compliance
+## Phase 6: Privacy, Data Security & Compliance
 
 - [ ] **6.1 Security & Privacy Controls**
   - [ ] Encrypt sensitive health data in database
@@ -140,7 +140,7 @@ Comprehensive task tracker for building the **ROVR Women's Wellness Companion** 
 
 ---
 
-##  Verification & Testing
+## Verification & Testing
 
 - [ ] Run backend unit tests for cycle phase calculation
 - [ ] Test API endpoints with valid JWT auth header
