@@ -41,7 +41,6 @@ export default function WellnessDashboard() {
     const [recommendations, setRecommendations] = useState<Recommendations | null>(null);
 
     const load = useCallback(async () => {
-        setLoading(true);
         try {
             const res = await wellnessAPI.getCurrentCycle();
             setCurrent(res.data);
