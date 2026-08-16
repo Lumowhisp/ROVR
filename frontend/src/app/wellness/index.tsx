@@ -64,7 +64,7 @@ export default function WellnessDashboard() {
 
     useEffect(() => {
         load();
-    }, []);
+    }, [load]);
 
     if (loading) {
         return (
