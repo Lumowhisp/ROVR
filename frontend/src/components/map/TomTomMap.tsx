@@ -290,11 +290,21 @@ function generateMapHTML(apiKey: string, lat: number, lng: number): string {
                 'line-cap': 'round'
               },
               paint: {
-                'line-color': '#98E527',
+                'line-color': '#00E5FF',
                 'line-width': 5,
                 'line-opacity': 0.95
               }
             });
+          }
+
+          if (msg.fitBounds) {
+            try {
+              var wBounds = new tt.LngLatBounds();
+              coords.forEach(function(c) {
+                wBounds.extend(c);
+              });
+              map.fitBounds(wBounds, { padding: 35, maxZoom: 17, duration: 800 });
+            } catch(e) {}
           }
           break;
 
@@ -637,6 +647,7 @@ const TomTomMap = forwardRef<TomTomMapHandle, TomTomMapProps>(function TomTomMap
     sendToMap(webViewRef, {
       type: 'UPDATE_WALKING_PATH',
       coordinates: coordsToTomTom(walkingPath),
+      fitBounds: !followUser,
     });
 
     if (!startMarkerAdded.current && walkingPath.length >= 2) {
@@ -647,7 +658,7 @@ const TomTomMap = forwardRef<TomTomMapHandle, TomTomMapProps>(function TomTomMap
         longitude: walkingPath[0].longitude,
       });
     }
-  }, [walkingPath]);
+  }, [walkingPath, followUser]);
 
   // Update recommended route polyline
   useEffect(() => {

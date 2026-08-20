@@ -71,6 +71,7 @@ export default function DateSelector({ date: externalDate, onDateChange }: DateS
           mode="date"
           display="spinner"
           onChange={handleChange}
+          onDismiss={() => setShowPicker(false)}
         />
       )}
     </View>

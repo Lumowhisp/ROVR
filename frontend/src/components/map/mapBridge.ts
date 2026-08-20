@@ -18,7 +18,7 @@ export interface SafeRouteData {
 /** Messages sent from React Native → WebView */
 export type RNToMapMessage =
   | { type: 'CENTER_MAP'; latitude: number; longitude: number; zoom?: number; animate?: boolean }
-  | { type: 'UPDATE_WALKING_PATH'; coordinates: [number, number][] }
+  | { type: 'UPDATE_WALKING_PATH'; coordinates: [number, number][]; fitBounds?: boolean }
   | { type: 'SET_RECOMMENDED_ROUTE'; route: SafeRouteData }
   | { type: 'CLEAR_RECOMMENDED_ROUTE' }
   | { type: 'SET_ROAD_SEGMENTS'; geojson: any }

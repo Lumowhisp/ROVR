@@ -11,6 +11,7 @@ import {
 import { useColorScheme, ActivityIndicator, View, StyleSheet } from 'react-native';
 
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { StepProvider } from '@/context/StepContext';
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // SplashScreen.preventAutoHideAsync();
@@ -51,7 +52,9 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <AuthProvider>
-          <RootNavigator />
+          <StepProvider>
+            <RootNavigator />
+          </StepProvider>
         </AuthProvider>
       </ThemeProvider>
     </GestureHandlerRootView>

@@ -31,4 +31,5 @@ export interface WorkoutSummary {
   avgSpeed: number;
   routeCoordinates: LocationCoordinate[];
   earnedXP: number;
+  steps?: number;
 }

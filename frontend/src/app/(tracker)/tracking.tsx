@@ -60,6 +60,7 @@ import {
   generateWorkoutId,
 } from '@/lib/geo';
 import { workoutStorage } from '@/services/workoutStorage';
+import { stepCounterService } from '@/services/stepCounter';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -176,7 +177,7 @@ export default function TrackingScreen() {
     }, 2000);
   };
 
-  // Live GPS watching
+  // Live GPS watching with Kalman-grade noise filtering
   const startGPSWatch = async () => {
     if (locationSubscription.current) {
       locationSubscription.current.remove();
@@ -187,15 +188,21 @@ export default function TrackingScreen() {
         {
           accuracy: Location.Accuracy.BestForNavigation,
           timeInterval: 1000,
-          distanceInterval: 1.5,
+          distanceInterval: 2.0, // 2-meter minimum movement threshold
         },
         (loc) => {
+          const accuracy = loc.coords.accuracy;
+          // Filter out low-accuracy cell tower fixes (> 20 meters error radius)
+          if (accuracy !== null && accuracy !== undefined && accuracy > 20) {
+            return;
+          }
+
           const newCoord: LocationCoordinate = {
             latitude: loc.coords.latitude,
             longitude: loc.coords.longitude,
             altitude: loc.coords.altitude,
             speed: loc.coords.speed,
-            timestamp: loc.timestamp,
+            timestamp: loc.timestamp || Date.now(),
           };
 
           setCurrentLocation(newCoord);
@@ -214,24 +221,37 @@ export default function TrackingScreen() {
           setCoordinates((prevCoords) => {
             if (prevCoords.length > 0) {
               const lastCoord = prevCoords[prevCoords.length - 1];
-              const addedDist = calculateHaversineDistance(lastCoord, newCoord);
+              const addedDist = calculateHaversineDistance(lastCoord, newCoord); // km
+              const newTime = newCoord.timestamp || Date.now();
+              const lastTime = lastCoord.timestamp || (newTime - 1000);
+              const dtSeconds = Math.max(1, (newTime - lastTime) / 1000);
+              const calculatedSpeedKmh = (addedDist / (dtSeconds / 3600));
 
-              if (addedDist > 0.0015) {
+              // Glitch rejection: Discard sudden GPS teleport spikes (>60 km/h walk/run, >110 km/h cycle)
+              const maxAllowedSpeed = activityType === 'cycling' ? 110 : 55;
+              if (calculatedSpeedKmh > maxAllowedSpeed && addedDist > 0.08) {
+                return prevCoords;
+              }
+
+              // Jitter Deadband Filter: Only append new point if user has actually moved at least 3.0 meters (0.003 km)
+              // OR if instantaneous speed > 0.4 m/s and distance > 1.8 meters
+              if (addedDist >= 0.003 || (rawSpeedMps !== null && rawSpeedMps > 0.4 && addedDist >= 0.0018)) {
                 setTotalDistanceKm((prevDist) => prevDist + addedDist);
                 lastMovementTimestamp.current = Date.now();
 
-                if (instantSpeedKmH === 0 && (rawSpeedMps === null || rawSpeedMps === undefined)) {
-                  const newTime = newCoord.timestamp || Date.now();
-                  const lastTime = lastCoord.timestamp || (newTime - 1000);
-                  const dtSeconds = Math.max(1, (newTime - lastTime) / 1000);
-                  const deltaSpeed = addedDist / (dtSeconds / 3600);
-                  if (deltaSpeed > 1.0 && deltaSpeed < 45) {
-                    instantSpeedKmH = deltaSpeed;
-                  }
+                if (instantSpeedKmH === 0 && calculatedSpeedKmh > 1.0 && calculatedSpeedKmh < maxAllowedSpeed) {
+                  instantSpeedKmH = calculatedSpeedKmh;
                 }
+
+                return [...prevCoords, newCoord];
               }
+
+              // User is stationary or minor GPS drift: Keep polyline stable without injecting spiderweb noise
+              return prevCoords;
             }
-            return [...prevCoords, newCoord];
+
+            // First valid GPS coordinate
+            return [newCoord];
           });
 
           setCurrentSpeedKmH(Number(instantSpeedKmH.toFixed(1)));
@@ -239,7 +259,6 @@ export default function TrackingScreen() {
       );
     } catch (err) {
       console.log('GPS watch error:', err);
-      startSimulation();
     }
   };
 
@@ -252,22 +271,16 @@ export default function TrackingScreen() {
 
         if (granted) {
           const loc = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
+            accuracy: Location.Accuracy.High,
           });
           const initialCoord: LocationCoordinate = {
             latitude: loc.coords.latitude,
             longitude: loc.coords.longitude,
             altitude: loc.coords.altitude,
             speed: loc.coords.speed,
-            timestamp: loc.timestamp,
+            timestamp: loc.timestamp || Date.now(),
           };
           setCurrentLocation(initialCoord);
-        } else {
-          const fallbackCoord: LocationCoordinate = {
-            latitude: 28.6139,
-            longitude: 77.209,
-          };
-          setCurrentLocation(fallbackCoord);
         }
       } catch (err) {
         console.log('Location init error:', err);
@@ -400,6 +413,7 @@ export default function TrackingScreen() {
   const handleSaveWorkout = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const now = getCurrentTimestamp();
+    const sessionSteps = activityType !== 'cycling' ? Math.round(totalDistanceKm * 1300) : 0;
     const summary: WorkoutSummary = {
       id: generateWorkoutId(),
       activityType,
@@ -412,10 +426,14 @@ export default function TrackingScreen() {
       avgSpeed: Number(avgSpeed),
       routeCoordinates: coordinates,
       earnedXP,
+      steps: sessionSteps,
     };
     await workoutStorage.saveWorkout(summary);
+    if (sessionSteps > 0) {
+      await stepCounterService.addSteps(sessionSteps);
+    }
     setShowSummaryModal(false);
-    router.replace('/(tracker)/workout' as any);
+    router.replace('/(tabs)/journal' as any);
   };
 
   const handleRecenter = () => {
@@ -785,7 +803,7 @@ export default function TrackingScreen() {
                   style={styles.discardBtn}
                   onPress={() => {
                     setShowSummaryModal(false);
-                    router.replace('/(tracker)/workout' as any);
+                    router.replace('/(tabs)' as any);
                   }}
                 >
                   <Text style={styles.discardBtnText}>Discard</Text>

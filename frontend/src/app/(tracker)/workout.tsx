@@ -130,6 +130,7 @@ export default function WorkoutScreen() {
     totalDurationSeconds: 0,
     totalCaloriesBurned: 0,
     totalXP: 0,
+    totalSteps: 0,
   });
 
   const buttonScale = useSharedValue(1);

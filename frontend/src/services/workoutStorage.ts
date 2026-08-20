@@ -10,6 +10,7 @@ export interface CumulativeStats {
   totalDurationSeconds: number;
   totalCaloriesBurned: number;
   totalXP: number;
+  totalSteps: number;
 }
 
 export const workoutStorage = {
@@ -22,6 +23,9 @@ export const workoutStorage = {
       const updated = [workout, ...existing];
       await AsyncStorage.setItem(WORKOUT_HISTORY_KEY, JSON.stringify(updated));
 
+      // Calculate steps if not provided: ~1300 steps/km for walk/run
+      const sessionSteps = workout.steps || (workout.activityType !== 'cycling' ? Math.round(workout.distanceKm * 1300) : 0);
+
       // Update cumulative stats
       const stats = await workoutStorage.getCumulativeStats();
       const newStats: CumulativeStats = {
@@ -30,6 +34,7 @@ export const workoutStorage = {
         totalDurationSeconds: stats.totalDurationSeconds + workout.durationSeconds,
         totalCaloriesBurned: stats.totalCaloriesBurned + workout.caloriesBurned,
         totalXP: stats.totalXP + workout.earnedXP,
+        totalSteps: (stats.totalSteps || 0) + sessionSteps,
       };
       await AsyncStorage.setItem(WORKOUT_STATS_KEY, JSON.stringify(newStats));
     } catch (err) {
@@ -63,6 +68,7 @@ export const workoutStorage = {
             totalDurationSeconds: 0,
             totalCaloriesBurned: 0,
             totalXP: 0,
+            totalSteps: 0,
           };
     } catch {
       return {
@@ -71,6 +77,7 @@ export const workoutStorage = {
         totalDurationSeconds: 0,
         totalCaloriesBurned: 0,
         totalXP: 0,
+        totalSteps: 0,
       };
     }
   },

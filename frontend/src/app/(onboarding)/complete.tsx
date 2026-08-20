@@ -89,7 +89,7 @@ export default function OnboardingCompleteScreen() {
         <Pressable
           style={styles.startBtn}
           onPress={() => {
-            router.replace("/(tracker)/workout" as any);
+            router.replace("/(tabs)" as any);
           }}
         >
           <LinearGradient
