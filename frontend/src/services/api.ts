@@ -3,23 +3,29 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import type { WorkoutSummary } from '@/types/workout';
 
-const RENDER_BACKEND_URL = process.env.EXPO_PUBLIC_API_URL || 'https://rovr.onrender.com';
-
-// Automatically detect host IP in local dev or fallback to live Render backend
+// Prioritize explicit Render backend URL from env, fallback to production Render URL or local dev
 const getBaseUrl = () => {
-  const hostUri =
-    Constants.expoConfig?.hostUri ||
-    (Constants as unknown as { expoGoConfig?: { debuggerHost?: string } }).expoGoConfig?.debuggerHost ||
-    (Constants as unknown as { manifest?: { debuggerHost?: string } }).manifest?.debuggerHost;
-
-  if (hostUri) {
-    const ip = hostUri.split(':')[0];
-    return `http://${ip}:3000`;
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
   }
-  return RENDER_BACKEND_URL;
+
+  if (process.env.EXPO_PUBLIC_USE_LOCAL_BACKEND === 'true') {
+    const hostUri =
+      Constants.expoConfig?.hostUri ||
+      (Constants as unknown as { expoGoConfig?: { debuggerHost?: string } }).expoGoConfig?.debuggerHost ||
+      (Constants as unknown as { manifest?: { debuggerHost?: string } }).manifest?.debuggerHost;
+
+    if (hostUri) {
+      const ip = hostUri.split(':')[0];
+      return `http://${ip}:3000`;
+    }
+  }
+
+  return 'https://rovr.onrender.com';
 };
 
 const BASE_URL = getBaseUrl();
+console.log('📡 ROVR Connected API Base URL:', BASE_URL);
 
 // eslint-disable-next-line import/no-named-as-default-member
 const api = axios.create({
