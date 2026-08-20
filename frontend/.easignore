@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+.expo/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment
+*.env
+*.env.local
+
+# Native builds
+android/
+ios/
+dist/
+web-build/

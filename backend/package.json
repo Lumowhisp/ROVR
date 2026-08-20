@@ -2,10 +2,15 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
+    "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "npx nodemon server.js"
+    "dev": "nodemon server.js",
+    "import:kp3-roads": "node scripts/import-kp3-roads.js",
+    "enrich:kp3-osm": "node scripts/enrich-kp3-osm-features.js",
+    "update:kp3-traffic": "node scripts/update-kp3-traffic.js",
+    "update:kp3-incidents": "node scripts/update-kp3-incidents.js"
   },
   "keywords": [],
   "author": "",

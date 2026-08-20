@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "30362906740",
+    "project_id": "rovr-b6353",
+    "storage_bucket": "rovr-b6353.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:30362906740:android:2736725e5f3295433b2121",
+        "android_client_info": {
+          "package_name": "com.rovr.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "30362906740-1n4mg2jmvng7fccpvfillqi30nnk99uu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyASWgijUp-NTSS4Rsnm5LdCgMYLBDs6_bI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "30362906740-1n4mg2jmvng7fccpvfillqi30nnk99uu.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

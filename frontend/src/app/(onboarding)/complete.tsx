@@ -89,18 +89,17 @@ export default function OnboardingCompleteScreen() {
         <Pressable
           style={styles.startBtn}
           onPress={() => {
-            // Can route to tabs or dashboard when available
-            router.replace("/(onboarding)/bmi-result" as any);
+            router.replace("/(tracker)/workout" as any);
           }}
         >
           <LinearGradient
-            colors={["#A855F7", "#6366F1"]}
+            colors={["#98E527", "#4ADE80"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.btnGradient}
           >
-            <Text style={styles.btnText}>Explore ROVR Dashboard</Text>
-            <ArrowRight size={20} color="#FFFFFF" strokeWidth={2.5} />
+            <Text style={[styles.btnText, { color: "#000000" }]}>Start Workout & Tracking</Text>
+            <ArrowRight size={20} color="#000000" strokeWidth={2.5} />
           </LinearGradient>
         </Pressable>
       </Animated.View>

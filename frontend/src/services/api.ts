@@ -2,7 +2,9 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
-// Automatically detect host IP from Expo manifest (works on Mobile Hotspot, Wi-Fi, etc.)
+const RENDER_BACKEND_URL = process.env.EXPO_PUBLIC_API_URL || 'https://rovr.onrender.com';
+
+// Automatically detect host IP in local dev or fallback to live Render backend
 const getBaseUrl = () => {
   const hostUri =
     Constants.expoConfig?.hostUri ||
@@ -13,7 +15,7 @@ const getBaseUrl = () => {
     const ip = hostUri.split(':')[0];
     return `http://${ip}:3000`;
   }
-  return 'http://10.50.74.37:3000';
+  return RENDER_BACKEND_URL;
 };
 
 const BASE_URL = getBaseUrl();
@@ -92,6 +94,45 @@ export const onboardAPI = {
 export const profileAPI = {
   getBMI: async () => {
     const response = await api.get('/api/services/profile/getBMI');
+    return response.data;
+  },
+};
+
+// Road Network & Safety Routing API calls
+export const roadsAPI = {
+  getSegments: async (params?: {
+    areaKey?: string;
+    mode?: 'walking' | 'running' | 'cycling';
+    format?: 'geojson' | 'json';
+  }) => {
+    const response = await api.get('/api/roads/segments', { params });
+    return response.data;
+  },
+
+  getLoopRoute: async (params: {
+    lat: number;
+    lng: number;
+    distanceKm: number;
+    mode?: 'walking' | 'running' | 'cycling';
+    areaKey?: string;
+    tolerance?: number;
+  }) => {
+    const response = await api.get('/api/roads/loop', { params });
+    return response.data;
+  },
+
+  updateTraffic: async (
+    segmentId: string,
+    data: {
+      currentLevel: number;
+      source?: string;
+      confidence?: number;
+      currentSpeedKph?: number;
+      freeFlowSpeedKph?: number;
+      roadClosure?: boolean;
+    }
+  ) => {
+    const response = await api.patch(`/api/roads/segments/${segmentId}/traffic`, data);
     return response.data;
   },
 };
