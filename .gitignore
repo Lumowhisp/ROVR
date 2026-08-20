@@ -1,14 +1,35 @@
-# Ignore personal folders
-Learn/
-RIVE/
-credentials/
+# Dependencies
+node_modules/
+*/node_modules/
+package-lock.json.bak
 
 # OS
 .DS_Store
 Thumbs.db
+*.tmp
+
+# Expo & Metro
+.expo/
+.expo-shared/
+web-build/
+dist/
+build/
 
 # Config & secrets
 *.env
 *.env.local
+*.env.*.local
 .env
 .env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Personal & scratch folders
+Learn/
+RIVE/
+credentials/
+scratch/
