@@ -9,19 +9,17 @@ import {
   Switch,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Settings, ChevronDown, LogOut, User, Activity } from 'lucide-react-native';
+import { ChevronDown, LogOut, User } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 
 export default function ProfileScreen() {
-  const router = useRouter();
   const { user, signOut } = useAuth();
 
-  const [stepsGoal, setStepsGoal] = useState('6,000');
-  const [calorieGoal, setCalorieGoal] = useState('450 kcal');
+  const [stepsGoal] = useState('6,000');
+  const [calorieGoal] = useState('450 kcal');
   const [bedtimeEnabled, setBedtimeEnabled] = useState(true);
-  const [getInBedTime, setGetInBedTime] = useState('11:00 pm');
-  const [wakeUpTime, setWakeUpTime] = useState('7:00 am');
+  const [getInBedTime] = useState('11:00 pm');
+  const [wakeUpTime] = useState('7:00 am');
 
   const gender = user?.gender ? (user.gender.charAt(0).toUpperCase() + user.gender.slice(1)) : 'Not set';
   const weight = user?.weight ? `${user.weight} kg` : 'Not set';

@@ -18,9 +18,7 @@ import {
   Mountain,
   Plus,
   Zap,
-  Calendar,
   Activity,
-  Flame,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { workoutStorage } from '@/services/workoutStorage';
@@ -65,13 +63,10 @@ export default function JournalScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   const loadWorkouts = async () => {
-    setIsLoading(true);
     const list = await workoutStorage.getAllWorkouts();
     setWorkouts(list);
-    setIsLoading(false);
   };
 
   useFocusEffect(

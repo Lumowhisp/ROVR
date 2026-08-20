@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { StyleSheet, View, Platform } from 'react-native';
-import { Compass, ClipboardList, PlusCircle, User, Activity } from 'lucide-react-native';
+import { StyleSheet, Platform } from 'react-native';
+import { Compass, ClipboardList, User, Activity } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 
 export default function TabLayout() {

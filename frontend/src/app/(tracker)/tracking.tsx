@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
@@ -25,7 +26,6 @@ import {
   Navigation,
   Flame,
   Zap,
-  MapPin,
   CheckCircle2,
   ArrowLeft,
   Footprints,
@@ -37,13 +37,10 @@ import {
   Sparkles,
   X,
   Timer,
-  Award,
 } from 'lucide-react-native';
-import { ActivityIndicator } from 'react-native';
 import Animated, {
   ZoomIn,
   FadeInDown,
-  FadeInUp,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -98,8 +95,7 @@ export default function TrackingScreen() {
   const mapRef = useRef<TomTomMapHandle | null>(null);
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const simulationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastMovementTimestamp = useRef<number>(Date.now());
+  const lastMovementTimestamp = useRef<number>(0);
 
   // Breathing live pulse animation
   const pulseAnim = useSharedValue(1);
@@ -109,6 +105,7 @@ export default function TrackingScreen() {
       -1,
       true
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const pulseStyle = useAnimatedStyle(() => ({
@@ -125,11 +122,12 @@ export default function TrackingScreen() {
 
   const startTimer = () => {
     stopTimer();
+    lastMovementTimestamp.current = Date.now();
     timerRef.current = setInterval(() => {
       setElapsedSeconds((prev) => prev + 1);
 
       // Auto zero-decay speed if stationary for more than 2 seconds
-      if (Date.now() - lastMovementTimestamp.current > 2000) {
+      if (lastMovementTimestamp.current > 0 && Date.now() - lastMovementTimestamp.current > 2000) {
         setCurrentSpeedKmH(0);
       }
     }, 1000);
@@ -140,41 +138,7 @@ export default function TrackingScreen() {
       locationSubscription.current.remove();
       locationSubscription.current = null;
     }
-    if (simulationTimerRef.current) {
-      clearInterval(simulationTimerRef.current);
-      simulationTimerRef.current = null;
-    }
     setCurrentSpeedKmH(0);
-  };
-
-  // Simulation mode for fallback
-  const startSimulation = () => {
-    if (simulationTimerRef.current) clearInterval(simulationTimerRef.current);
-    let lat = currentLocation?.latitude || 28.6139;
-    let lon = currentLocation?.longitude || 77.209;
-
-    simulationTimerRef.current = setInterval(() => {
-      lat += (Math.random() - 0.45) * 0.00015;
-      lon += (Math.random() - 0.45) * 0.00015;
-
-      const simCoord: LocationCoordinate = {
-        latitude: lat,
-        longitude: lon,
-        timestamp: getCurrentTimestamp(),
-      };
-
-      setCurrentLocation(simCoord);
-      lastMovementTimestamp.current = Date.now();
-      setCurrentSpeedKmH(4.8);
-
-      setCoordinates((prev) => {
-        if (prev.length > 0) {
-          const added = calculateHaversineDistance(prev[prev.length - 1], simCoord);
-          setTotalDistanceKm((d) => d + added);
-        }
-        return [...prev, simCoord];
-      });
-    }, 2000);
   };
 
   // Live GPS watching with Kalman-grade noise filtering
@@ -291,7 +255,6 @@ export default function TrackingScreen() {
     return () => {
       stopGPSWatch();
       stopTimer();
-      if (simulationTimerRef.current) clearInterval(simulationTimerRef.current);
     };
   }, []);
 

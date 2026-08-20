@@ -6,7 +6,6 @@ import {
   View,
   ScrollView,
   StatusBar,
-  Dimensions,
   Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -15,11 +14,8 @@ import {
   Settings,
   ChevronRight,
   Plus,
-  Flame,
   MapPin,
-  Clock,
   Footprints,
-  Sparkles,
   Check,
   Award,
   Activity,
@@ -32,7 +28,6 @@ import type { WorkoutSummary } from '@/types/workout';
 import { useAuth } from '@/context/AuthContext';
 import TomTomMap from '@/components/map/TomTomMap';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function HomeScreen() {
@@ -128,7 +123,7 @@ export default function HomeScreen() {
             </View>
             <View style={styles.legendItem}>
               <Footprints size={14} color="#00E5FF" />
-              <Text style={styles.legendText}>Today's Steps</Text>
+              <Text style={styles.legendText}>{"Today's Steps"}</Text>
             </View>
           </View>
         </Animated.View>

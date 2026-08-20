@@ -18,10 +18,8 @@ import {
   Bike,
   Compass,
   Mountain,
-  Target,
   ChevronRight,
   ShieldCheck,
-  Zap,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { ActivityType } from '@/types/workout';

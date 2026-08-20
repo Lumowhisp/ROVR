@@ -6,7 +6,6 @@ import {
   View,
   ScrollView,
   StatusBar,
-  Dimensions,
   Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -25,11 +24,9 @@ import {
   ArrowLeft,
   Navigation,
   Mountain,
-  Trophy,
   Target,
   ShieldCheck,
   Activity,
-  Heart,
   Timer,
 } from 'lucide-react-native';
 import Animated, {
@@ -44,8 +41,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { ActivityType } from '@/types/workout';
 import { workoutStorage, type CumulativeStats } from '@/services/workoutStorage';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface ActivityOption {
   id: ActivityType;
@@ -143,6 +138,7 @@ export default function WorkoutScreen() {
       -1,
       true
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const pulseStyle = useAnimatedStyle(() => ({
