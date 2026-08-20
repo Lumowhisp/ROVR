@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,35 +8,160 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Bell, Search, Plus, Footprints, Bike } from 'lucide-react-native';
+import { useFocusEffect } from 'expo-router';
+import { Bell, Search, Plus, Footprints, Bike, Compass, Mountain } from 'lucide-react-native';
 import Svg, { Polygon } from 'react-native-svg';
 import { ProgressRing } from '@/components/ui';
 import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/context/AuthContext';
+import { stepsAPI } from '@/services/api';
+import { workoutStorage } from '@/services/workoutStorage';
 import * as Haptics from 'expo-haptics';
+import type { WorkoutSummary } from '@/types/workout';
 
-const GOAL_CARDS = [
-  { top: 'This Week', value: '42.2 km', note: '12%', pct: 72 },
-  { top: 'Streak', value: '7 Days', note: 'Keep it up!', pct: 70 },
-  { top: 'Achievements', value: '24', note: '+2 this week', pct: 55 },
-];
+const ACTIVITY_ICONS: Record<string, typeof Footprints> = {
+  running: Footprints,
+  cycling: Bike,
+  walking: Compass,
+  hiking: Mountain,
+};
 
-const RECENT_ACTIVITIES = [
-  { id: '1', type: 'run', label: 'Ran', sub: 'Today', dist: '8.8 km', time: '45:32', icon: Footprints },
-  { id: '2', type: 'cycle', label: 'Cycle', sub: 'Yesterday', dist: '24.5 km', time: '1:12:15', icon: Bike },
-  { id: '3', type: 'run', label: 'Ran', sub: 'Mon', dist: '5.2 km', time: '28:44', icon: Footprints },
-];
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function formatRelativeDate(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 7) {
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return dayNames[new Date(timestamp).getDay()];
+  }
+  return `${days}d ago`;
+}
+
+interface GoalCardData {
+  top: string;
+  value: string;
+  note: string;
+  pct: number;
+}
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [goalCards, setGoalCards] = useState<GoalCardData[]>([]);
+  const [recentActivities, setRecentActivities] = useState<WorkoutSummary[]>([]);
+  const [progressPct, setProgressPct] = useState(0);
 
-  const displayName = user?.name ? user.name.split(' ')[0] : 'Ankit';
+  const displayName = user?.name ? user.name.split(' ')[0] : 'User';
   const initials = user?.name
     ? user.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
-    : 'AS';
+    : 'U';
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      // Load local workout data
+      const workouts = await workoutStorage.getAllWorkouts();
+      setRecentActivities(workouts.slice(0, 5));
+
+      // Try fetching backend data
+      const [weeklyRes, streakRes, todayRes] = await Promise.allSettled([
+        stepsAPI.getWeekly(),
+        stepsAPI.getStreak(),
+        stepsAPI.getToday(),
+      ]);
+
+      const cards: GoalCardData[] = [];
+
+      // Weekly distance card
+      if (weeklyRes.status === 'fulfilled' && weeklyRes.value?.data) {
+        const weekData = weeklyRes.value.data;
+        const totalDist = weekData.totalDistance ?? weekData.total_distance_km ?? 0;
+        const goalPct = Math.min(Math.round((totalDist / 50) * 100), 100); // 50km weekly goal
+        cards.push({
+          top: 'This Week',
+          value: `${totalDist.toFixed(1)} km`,
+          note: `${goalPct}%`,
+          pct: goalPct,
+        });
+      } else {
+        // Fallback to local workout data
+        const now = Date.now();
+        const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+        const weekWorkouts = workouts.filter((w) => w.startTime >= weekAgo);
+        const totalDist = weekWorkouts.reduce((s, w) => s + w.distanceKm, 0);
+        const goalPct = Math.min(Math.round((totalDist / 50) * 100), 100);
+        cards.push({
+          top: 'This Week',
+          value: `${totalDist.toFixed(1)} km`,
+          note: `${goalPct}%`,
+          pct: goalPct,
+        });
+      }
+
+      // Streak card
+      if (streakRes.status === 'fulfilled' && streakRes.value?.data) {
+        const streakData = streakRes.value.data;
+        const currentStreak = streakData.currentStreak ?? streakData.current ?? 0;
+        const longestStreak = streakData.longestStreak ?? streakData.longest ?? 10;
+        const streakPct = longestStreak > 0 ? Math.min(Math.round((currentStreak / longestStreak) * 100), 100) : 0;
+        cards.push({
+          top: 'Streak',
+          value: `${currentStreak} Days`,
+          note: currentStreak > 0 ? 'Keep it up!' : 'Start today!',
+          pct: streakPct,
+        });
+      } else {
+        cards.push({ top: 'Streak', value: '0 Days', note: 'Start today!', pct: 0 });
+      }
+
+      // Achievements card (local XP from workouts)
+      const stats = await workoutStorage.getCumulativeStats();
+      const xpPct = Math.min(Math.round((stats.totalXP / 2000) * 100), 100);
+      cards.push({
+        top: 'Total XP',
+        value: `${stats.totalXP}`,
+        note: `${stats.totalWorkouts} sessions`,
+        pct: xpPct,
+      });
+
+      setGoalCards(cards);
+
+      // Progress percentage from today's steps
+      if (todayRes.status === 'fulfilled' && todayRes.value?.data) {
+        const todayData = todayRes.value.data;
+        const steps = todayData.steps ?? 0;
+        const goal = todayData.goal_steps ?? 10000;
+        setProgressPct(Math.min(Math.round((steps / goal) * 100), 100));
+      } else {
+        setProgressPct(0);
+      }
+    } catch (err) {
+      console.log('Home data load error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const handleStartWorkout = () => {
     try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
@@ -66,7 +191,7 @@ export default function HomeScreen() {
                     <Svg width={10} height={10} viewBox="0 0 24 24" fill="#9BEA20">
                       <Polygon points="13,2 3,14 12,14 11,22 21,10 12,10" />
                     </Svg>
-                    <Text style={styles.progressBadgeText}>Progress: 75%</Text>
+                    <Text style={styles.progressBadgeText}>Progress: {progressPct}%</Text>
                   </View>
                 </View>
               </View>
@@ -110,32 +235,36 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.goalCarousel}
-          >
-            {GOAL_CARDS.map((c, i) => (
-              <View key={i} style={styles.goalCard}>
-                <View>
-                  <Text style={styles.goalTop}>{c.top}</Text>
-                  <Text style={styles.goalValue}>{c.value}</Text>
+          {loading ? (
+            <ActivityIndicator color="#9BEA20" style={{ marginVertical: 40 }} />
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.goalCarousel}
+            >
+              {goalCards.map((c, i) => (
+                <View key={i} style={styles.goalCard}>
+                  <View>
+                    <Text style={styles.goalTop}>{c.top}</Text>
+                    <Text style={styles.goalValue}>{c.value}</Text>
+                  </View>
+                  <View style={styles.goalBottomRow}>
+                    <Text style={styles.goalNote}>{c.note}</Text>
+                    <ProgressRing
+                      size={46}
+                      stroke={3.5}
+                      progress={c.pct}
+                      color="#9BEA20"
+                      trackColor="rgba(255, 255, 255, 0.08)"
+                    >
+                      <Text style={styles.goalPctText}>{c.pct}%</Text>
+                    </ProgressRing>
+                  </View>
                 </View>
-                <View style={styles.goalBottomRow}>
-                  <Text style={styles.goalNote}>{c.note}</Text>
-                  <ProgressRing
-                    size={46}
-                    stroke={3.5}
-                    progress={c.pct}
-                    color="#9BEA20"
-                    trackColor="rgba(255, 255, 255, 0.08)"
-                  >
-                    <Text style={styles.goalPctText}>{c.pct}%</Text>
-                  </ProgressRing>
-                </View>
-              </View>
-            ))}
-          </ScrollView>
+              ))}
+            </ScrollView>
+          )}
 
           {/* Recent Activities */}
           <View style={[styles.sectionHeader, { marginTop: 24 }]}>
@@ -145,26 +274,35 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.activityList}>
-            {RECENT_ACTIVITIES.map((a) => {
-              const Icon = a.icon;
-              return (
-                <View key={a.id} style={styles.activityItem}>
-                  <View style={styles.activityIconWrap}>
-                    <Icon size={18} color="rgba(255, 255, 255, 0.5)" />
+          {loading ? (
+            <ActivityIndicator color="#9BEA20" style={{ marginVertical: 20 }} />
+          ) : recentActivities.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No workouts yet. Start your first one!</Text>
+            </View>
+          ) : (
+            <View style={styles.activityList}>
+              {recentActivities.map((a) => {
+                const Icon = ACTIVITY_ICONS[a.activityType] || Footprints;
+                const label = a.activityType.charAt(0).toUpperCase() + a.activityType.slice(1);
+                return (
+                  <View key={a.id} style={styles.activityItem}>
+                    <View style={styles.activityIconWrap}>
+                      <Icon size={18} color="rgba(255, 255, 255, 0.5)" />
+                    </View>
+                    <View style={styles.activityInfo}>
+                      <Text style={styles.activityLabel}>{label}</Text>
+                      <Text style={styles.activitySub}>{formatRelativeDate(a.startTime)}</Text>
+                    </View>
+                    <View style={styles.activityMetrics}>
+                      <Text style={styles.activityDist}>{a.distanceKm.toFixed(1)} km</Text>
+                      <Text style={styles.activityTime}>{formatDuration(a.durationSeconds)}</Text>
+                    </View>
                   </View>
-                  <View style={styles.activityInfo}>
-                    <Text style={styles.activityLabel}>{a.label}</Text>
-                    <Text style={styles.activitySub}>{a.sub}</Text>
-                  </View>
-                  <View style={styles.activityMetrics}>
-                    <Text style={styles.activityDist}>{a.dist}</Text>
-                    <Text style={styles.activityTime}>{a.time}</Text>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
+                );
+              })}
+            </View>
+          )}
         </ScrollView>
 
         <BottomNav active="home" />
@@ -416,5 +554,13 @@ const styles = StyleSheet.create({
   activityTime: {
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.38)',
+  },
+  emptyState: {
+    padding: 30,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: 'rgba(255, 255, 255, 0.3)',
+    fontSize: 14,
   },
 });

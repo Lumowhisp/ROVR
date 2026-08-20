@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,15 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Settings, ArrowLeft, Star, Crown, ArrowRight, Target, Trophy } from 'lucide-react-native';
 import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/context/AuthContext';
+import { profileAPI, stepsAPI, hydrationAPI } from '@/services/api';
+import { workoutStorage } from '@/services/workoutStorage';
 
 const ACHIEVEMENTS_STRIP = [
   { label: 'First 5K', emoji: '🏅', done: true },
@@ -22,11 +26,31 @@ const ACHIEVEMENTS_STRIP = [
   { label: 'Early Bird', emoji: '🌅', done: false },
 ];
 
+interface ProfileData {
+  totalDistance: string;
+  totalActivities: string;
+  monthlyGoal: string;
+  achievements: string;
+  bmi: string;
+  weight: string;
+  hydration: string;
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<ProfileData>({
+    totalDistance: '--',
+    totalActivities: '--',
+    monthlyGoal: '--',
+    achievements: '--',
+    bmi: '--',
+    weight: '--',
+    hydration: '--',
+  });
 
-  const fullName = user?.name || 'Ankit Sharma';
+  const fullName = user?.name || 'User';
   const initials = fullName
     .split(' ')
     .map((n) => n[0])
@@ -34,8 +58,98 @@ export default function ProfileScreen() {
     .slice(0, 2)
     .toUpperCase();
 
-  const bmiVal = user?.bmi || '21.4';
-  const weightVal = user?.weight ? `${user.weight} kg` : '70 kg';
+  const loadProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      const data: ProfileData = {
+        totalDistance: '--',
+        totalActivities: '--',
+        monthlyGoal: '--',
+        achievements: '--',
+        bmi: '--',
+        weight: '--',
+        hydration: '--',
+      };
+
+      // Fetch user profile from backend
+      try {
+        const meRes = await profileAPI.getMe();
+        if (meRes?.data) {
+          const u = meRes.data;
+          data.bmi = u.bmi ? u.bmi.toFixed(1) : '--';
+          data.weight = u.weight ? `${u.weight} kg` : '--';
+        }
+      } catch {
+        // Fallback to auth context
+        data.bmi = user?.bmi ? String(user.bmi) : '--';
+        data.weight = user?.weight ? `${user.weight} kg` : '--';
+      }
+
+      // Fetch stats — try backend then local
+      try {
+        const statsRes = await stepsAPI.getStats();
+        if (statsRes?.data) {
+          const s = statsRes.data;
+          data.totalDistance = `${(s.totalDistance ?? s.total_distance_km ?? 0).toFixed(1)} km`;
+          data.totalActivities = `${s.totalActivities ?? s.totalDays ?? 0}`;
+        }
+      } catch {
+        // Fallback to local
+        const stats = await workoutStorage.getCumulativeStats();
+        data.totalDistance = `${stats.totalDistanceKm.toFixed(1)} km`;
+        data.totalActivities = `${stats.totalWorkouts}`;
+      }
+
+      // Monthly goal from local workouts
+      const workouts = await workoutStorage.getAllWorkouts();
+      const now = Date.now();
+      const monthAgo = now - 30 * 24 * 60 * 60 * 1000;
+      const monthWorkouts = workouts.filter((w) => w.startTime >= monthAgo);
+      const monthDist = monthWorkouts.reduce((s, w) => s + w.distanceKm, 0);
+      const monthGoalKm = 100; // 100km monthly goal
+      data.monthlyGoal = `${Math.min(Math.round((monthDist / monthGoalKm) * 100), 100)}%`;
+
+      // XP as achievements count
+      const stats = await workoutStorage.getCumulativeStats();
+      data.achievements = `${stats.totalXP}`;
+
+      // Hydration
+      try {
+        const hydRes = await hydrationAPI.getToday();
+        if (hydRes?.data) {
+          data.hydration = `${(hydRes.data.consumed / 1000).toFixed(1)} L`;
+        }
+      } catch {
+        data.hydration = '--';
+      }
+
+      setProfile(data);
+    } catch (err) {
+      console.log('Profile load error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [loadProfile])
+  );
+
+  const trackingItems = [
+    { label: 'Total Distance', value: profile.totalDistance, icon: ArrowRight },
+    { label: 'Total Activities', value: profile.totalActivities, icon: Target },
+    { label: 'Monthly Goal', value: profile.monthlyGoal, icon: Target },
+    { label: 'Total XP', value: profile.achievements, icon: Trophy },
+  ];
+
+  const fitnessItems = [
+    { label: 'BMI', value: profile.bmi },
+    { label: 'Weight', value: profile.weight },
+    { label: 'Hydration', value: profile.hydration },
+  ];
 
   return (
     <View style={styles.container}>
@@ -60,102 +174,97 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Avatar Section */}
-          <View style={styles.avatarSection}>
-            <View style={styles.avatarWrap}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{initials}</Text>
-              </View>
-
-              {/* Gold Star Badge */}
-              <View style={styles.starBadge}>
-                <Star size={14} color="#FFFFFF" fill="#FFFFFF" />
-              </View>
-            </View>
-
-            <Text style={styles.userName}>{fullName}</Text>
-
-            {/* Active Crown Pill */}
-            <View style={styles.activePill}>
-              <Crown size={13} color="#F59E0B" />
-              <Text style={styles.activePillText}>Active Member</Text>
-            </View>
-          </View>
-
-          {/* Tracking Section */}
-          <Text style={styles.sectionLabel}>TRACKING</Text>
-          <View style={styles.trackingGrid}>
-            {[
-              { label: 'Total Distance', value: '428.5 km', icon: ArrowRight },
-              { label: 'Total Activities', value: '124', icon: Target },
-              { label: 'Monthly Goal', value: '85%', icon: Target },
-              { label: 'Achievements', value: '24', icon: Trophy },
-            ].map((m) => {
-              const Icon = m.icon;
-              return (
-                <View key={m.label} style={styles.trackingCard}>
-                  <View style={styles.trackingIconWrap}>
-                    <Icon size={14} color="rgba(255, 255, 255, 0.4)" />
-                  </View>
-                  <View>
-                    <Text style={styles.trackingLbl}>{m.label}</Text>
-                    <Text style={styles.trackingVal}>{m.value}</Text>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-
-          {/* Fitness Profile */}
-          <Text style={styles.sectionLabel}>FITNESS PROFILE</Text>
-          <View style={styles.fitnessRow}>
-            {[
-              { label: 'BMI', value: bmiVal },
-              { label: 'Weight', value: weightVal },
-              { label: 'Hydration', value: '2.8 L' },
-            ].map((m) => (
-              <View key={m.label} style={styles.fitnessCard}>
-                <Text style={styles.fitnessVal}>{m.value}</Text>
-                <Text style={styles.fitnessLbl}>{m.label}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Achievements Strip Header */}
-          <View style={styles.achievementsHeader}>
-            <Text style={styles.sectionLabel}>ACHIEVEMENTS</Text>
-            <TouchableOpacity onPress={() => router.push('/(main)/achievements' as any)}>
-              <Text style={styles.seeAllText}>See all</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Horizontal Achievements Strip */}
+        {loading ? (
+          <ActivityIndicator color="#9BEA20" style={{ flex: 1 }} />
+        ) : (
           <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.achievementsScroll}
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            {ACHIEVEMENTS_STRIP.map((a) => (
-              <View
-                key={a.label}
-                style={[
-                  styles.achievementBadge,
-                  !a.done && styles.achievementBadgeLocked,
-                ]}
-              >
-                <Text style={styles.achievementEmoji}>{a.emoji}</Text>
-                <Text style={styles.achievementTitle} numberOfLines={2}>
-                  {a.label}
-                </Text>
+            {/* Avatar Section */}
+            <View style={styles.avatarSection}>
+              <View style={styles.avatarWrap}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{initials}</Text>
+                </View>
+
+                {/* Gold Star Badge */}
+                <View style={styles.starBadge}>
+                  <Star size={14} color="#FFFFFF" fill="#FFFFFF" />
+                </View>
               </View>
-            ))}
+
+              <Text style={styles.userName}>{fullName}</Text>
+
+              {/* Active Crown Pill */}
+              <View style={styles.activePill}>
+                <Crown size={13} color="#F59E0B" />
+                <Text style={styles.activePillText}>Active Member</Text>
+              </View>
+            </View>
+
+            {/* Tracking Section */}
+            <Text style={styles.sectionLabel}>TRACKING</Text>
+            <View style={styles.trackingGrid}>
+              {trackingItems.map((m) => {
+                const Icon = m.icon;
+                return (
+                  <View key={m.label} style={styles.trackingCard}>
+                    <View style={styles.trackingIconWrap}>
+                      <Icon size={14} color="rgba(255, 255, 255, 0.4)" />
+                    </View>
+                    <View>
+                      <Text style={styles.trackingLbl}>{m.label}</Text>
+                      <Text style={styles.trackingVal}>{m.value}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* Fitness Profile */}
+            <Text style={styles.sectionLabel}>FITNESS PROFILE</Text>
+            <View style={styles.fitnessRow}>
+              {fitnessItems.map((m) => (
+                <View key={m.label} style={styles.fitnessCard}>
+                  <Text style={styles.fitnessVal}>{m.value}</Text>
+                  <Text style={styles.fitnessLbl}>{m.label}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Achievements Strip Header */}
+            <View style={styles.achievementsHeader}>
+              <Text style={styles.sectionLabel}>ACHIEVEMENTS</Text>
+              <TouchableOpacity onPress={() => router.push('/(main)/achievements' as any)}>
+                <Text style={styles.seeAllText}>See all</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Horizontal Achievements Strip */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.achievementsScroll}
+            >
+              {ACHIEVEMENTS_STRIP.map((a) => (
+                <View
+                  key={a.label}
+                  style={[
+                    styles.achievementBadge,
+                    !a.done && styles.achievementBadgeLocked,
+                  ]}
+                >
+                  <Text style={styles.achievementEmoji}>{a.emoji}</Text>
+                  <Text style={styles.achievementTitle} numberOfLines={2}>
+                    {a.label}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
           </ScrollView>
-        </ScrollView>
+        )}
 
         <BottomNav active="profile" />
       </SafeAreaView>

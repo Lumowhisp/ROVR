@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,13 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { ProgressRing } from '@/components/ui';
 import BottomNav from '@/components/BottomNav';
+import { hydrationAPI } from '@/services/api';
 import * as Haptics from 'expo-haptics';
 
 interface HydrationLog {
@@ -19,14 +22,6 @@ interface HydrationLog {
   time: string;
   ml: number;
 }
-
-const INITIAL_LOGS: HydrationLog[] = [
-  { id: '1', time: '07:00', ml: 250 },
-  { id: '2', time: '10:00', ml: 300 },
-  { id: '3', time: '13:00', ml: 400 },
-  { id: '4', time: '16:00', ml: 300 },
-  { id: '5', time: '19:00', ml: 350 },
-];
 
 function DropletIcon() {
   return (
@@ -37,14 +32,58 @@ function DropletIcon() {
 }
 
 export default function HydrationScreen() {
-  const [logs, setLogs] = useState<HydrationLog[]>(INITIAL_LOGS);
+  const [loading, setLoading] = useState(true);
+  const [goal, setGoal] = useState(2800);
+  const [consumed, setConsumed] = useState(0);
+  const [weeklyAvg, setWeeklyAvg] = useState('--');
+  const [logs, setLogs] = useState<HydrationLog[]>([]);
 
-  const goal = 2800;
-  const total = logs.reduce((s, l) => s + l.ml, 0);
-  const pct = Math.min(Math.round((total / goal) * 100), 100);
+  const pct = goal > 0 ? Math.min(Math.round((consumed / goal) * 100), 100) : 0;
 
-  const handleAddWater = (amount = 250) => {
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      // Fetch today's hydration from backend
+      try {
+        const todayRes = await hydrationAPI.getToday();
+        if (todayRes?.data) {
+          setGoal(todayRes.data.goal || 2800);
+          setConsumed(todayRes.data.consumed || 0);
+        }
+      } catch (err) {
+        console.log('Hydration today fetch error:', err);
+      }
+
+      // Fetch weekly average
+      try {
+        const weeklyRes = await hydrationAPI.getWeekly();
+        if (weeklyRes?.data) {
+          const avgMl = weeklyRes.data.avgConsumedMl || 0;
+          setWeeklyAvg(`${(avgMl / 1000).toFixed(1)} L`);
+        }
+      } catch {
+        setWeeklyAvg('--');
+      }
+    } catch (err) {
+      console.log('Hydration load error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
+
+  const handleAddWater = async (amount = 250) => {
     try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
+
+    // Optimistic update
+    setConsumed((prev) => prev + amount);
+
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const newLog: HydrationLog = {
@@ -53,7 +92,30 @@ export default function HydrationScreen() {
       ml: amount,
     };
     setLogs((prev) => [newLog, ...prev]);
+
+    // Persist to backend
+    try {
+      const res = await hydrationAPI.logWater(amount);
+      if (res?.data) {
+        setConsumed(res.data.consumed);
+      }
+    } catch (err) {
+      console.log('Failed to log water to backend:', err);
+      // Keep optimistic update
+    }
   };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" translucent />
+        <SafeAreaView style={styles.safeArea}>
+          <ActivityIndicator color="#22D3EE" style={{ flex: 1 }} />
+          <BottomNav active="home" />
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -80,7 +142,7 @@ export default function HydrationScreen() {
             >
               <View style={styles.gaugeInner}>
                 <Text style={styles.gaugeVolume}>
-                  {(total / 1000).toFixed(1)}
+                  {(consumed / 1000).toFixed(1)}
                 </Text>
                 <Text style={styles.gaugeGoal}>
                   of {(goal / 1000).toFixed(1)} L
@@ -92,17 +154,17 @@ export default function HydrationScreen() {
 
             <View style={styles.summaryRow}>
               <View style={styles.summaryBox}>
-                <Text style={styles.summaryVal}>2.8 L</Text>
+                <Text style={styles.summaryVal}>{(goal / 1000).toFixed(1)} L</Text>
                 <Text style={styles.summaryLbl}>Daily Goal</Text>
               </View>
               <View style={styles.summaryBox}>
-                <Text style={styles.summaryVal}>2.6 L</Text>
+                <Text style={styles.summaryVal}>{weeklyAvg}</Text>
                 <Text style={styles.summaryLbl}>Weekly Avg</Text>
               </View>
             </View>
           </View>
 
-          {/* Quick Add Button */}
+          {/* Quick Add Buttons */}
           <View style={styles.addBtnContainer}>
             <TouchableOpacity
               activeOpacity={0.88}
@@ -111,21 +173,32 @@ export default function HydrationScreen() {
             >
               <Text style={styles.addBtnText}>+ 250 ml</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={() => handleAddWater(500)}
+              style={[styles.addBtn, styles.addBtnSecondary]}
+            >
+              <Text style={[styles.addBtnText, styles.addBtnTextSecondary]}>+ 500 ml</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Today's Log */}
-          <Text style={styles.sectionHeader}>TODAY&apos;S LOG</Text>
-          <View style={styles.logsList}>
-            {logs.map((l) => (
-              <View key={l.id} style={styles.logCard}>
-                <View style={styles.dropletBadge}>
-                  <DropletIcon />
-                </View>
-                <Text style={styles.logTime}>{l.time}</Text>
-                <Text style={styles.logAmount}>{l.ml} ml</Text>
+          {logs.length > 0 && (
+            <>
+              <Text style={styles.sectionHeader}>TODAY&apos;S LOG</Text>
+              <View style={styles.logsList}>
+                {logs.map((l) => (
+                  <View key={l.id} style={styles.logCard}>
+                    <View style={styles.dropletBadge}>
+                      <DropletIcon />
+                    </View>
+                    <Text style={styles.logTime}>{l.time}</Text>
+                    <Text style={styles.logAmount}>{l.ml} ml</Text>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
+            </>
+          )}
         </ScrollView>
 
         <BottomNav active="home" />
@@ -217,7 +290,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   addBtnContainer: {
-    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
     marginBottom: 22,
   },
   addBtn: {
@@ -231,11 +306,21 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 4,
   },
+  addBtnSecondary: {
+    backgroundColor: 'rgba(34, 211, 238, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.3)',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   addBtnText: {
     color: '#0E172A',
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 0.2,
+  },
+  addBtnTextSecondary: {
+    color: '#22D3EE',
   },
   sectionHeader: {
     fontSize: 11,

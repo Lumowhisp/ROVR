@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,38 +8,83 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Footprints, Bike, Compass, Mountain, ArrowLeft } from 'lucide-react-native';
 import BottomNav from '@/components/BottomNav';
+import { workoutStorage } from '@/services/workoutStorage';
+import type { WorkoutSummary, ActivityType } from '@/types/workout';
 import * as Haptics from 'expo-haptics';
 
 const FILTERS = ['All', 'Running', 'Cycling', 'Walking', 'Hiking'];
 
-const ACTIVITIES = [
-  { id: '1', type: 'Running', label: 'Morning Run', dist: '8.8 km', time: '45:32', cal: '412', date: 'Today', icon: Footprints },
-  { id: '2', type: 'Cycling', label: 'Evening Ride', dist: '24.5 km', time: '1:12:15', cal: '680', date: 'Yesterday', icon: Bike },
-  { id: '3', type: 'Running', label: 'Interval Run', dist: '5.2 km', time: '28:44', cal: '290', date: 'Mon', icon: Footprints },
-  { id: '4', type: 'Running', label: 'Easy Run', dist: '6.4 km', time: '35:10', cal: '348', date: 'Sat', icon: Footprints },
-  { id: '5', type: 'Cycling', label: 'Morning Ride', dist: '18.3 km', time: '52:00', cal: '510', date: 'Fri', icon: Bike },
-  { id: '6', type: 'Walking', label: 'Sunset Walk', dist: '4.2 km', time: '48:10', cal: '190', date: 'Thu', icon: Compass },
-  { id: '7', type: 'Running', label: 'Long Run', dist: '12.1 km', time: '1:05:22', cal: '620', date: 'Wed', icon: Footprints },
-  { id: '8', type: 'Hiking', label: 'Hill Trail', dist: '7.5 km', time: '1:45:00', cal: '520', date: 'Last Sun', icon: Mountain },
-];
+const ACTIVITY_ICONS: Record<string, typeof Footprints> = {
+  running: Footprints,
+  cycling: Bike,
+  walking: Compass,
+  hiking: Mountain,
+};
+
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function formatDate(timestamp: number): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  
+  const isToday = date.toDateString() === now.toDateString();
+  if (isToday) return 'Today';
+  
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+
+  const daysAgo = Math.floor((now.getTime() - timestamp) / (1000 * 60 * 60 * 24));
+  if (daysAgo < 7) {
+    return date.toLocaleDateString('en-US', { weekday: 'short' });
+  }
+
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 export default function ActivityHistoryScreen() {
   const router = useRouter();
   const [filter, setFilter] = useState('All');
+  const [loading, setLoading] = useState(true);
+  const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
+
+  const loadWorkouts = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await workoutStorage.getAllWorkouts();
+      setWorkouts(data);
+    } catch (err) {
+      console.log('Error loading workout history:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadWorkouts();
+    }, [loadWorkouts])
+  );
 
   const handleSelectFilter = (f: string) => {
     try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
     setFilter(f);
   };
 
-  const filtered =
-    filter === 'All'
-      ? ACTIVITIES
-      : ACTIVITIES.filter((a) => a.type.toLowerCase() === filter.toLowerCase());
+  const filtered = filter === 'All'
+    ? workouts
+    : workouts.filter((w) => w.activityType.toLowerCase() === filter.toLowerCase());
 
   return (
     <View style={styles.container}>
@@ -89,32 +134,45 @@ export default function ActivityHistoryScreen() {
         </ScrollView>
 
         {/* Activities List */}
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.list}>
-            {filtered.map((a) => {
-              const Icon = a.icon;
-              return (
-                <View key={a.id} style={styles.card}>
-                  <View style={styles.iconWrap}>
-                    <Icon size={18} color="rgba(255, 255, 255, 0.5)" />
-                  </View>
-                  <View style={styles.infoCol}>
-                    <Text style={styles.cardLabel}>{a.label}</Text>
-                    <Text style={styles.cardSub}>{a.date} · {a.cal} kcal</Text>
-                  </View>
-                  <View style={styles.metricCol}>
-                    <Text style={styles.cardDist}>{a.dist}</Text>
-                    <Text style={styles.cardTime}>{a.time}</Text>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        </ScrollView>
+        {loading ? (
+          <ActivityIndicator color="#9BEA20" style={{ flex: 1 }} />
+        ) : (
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {filtered.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>
+                  {filter === 'All' ? 'No activities recorded yet.' : `No ${filter.toLowerCase()} sessions found.`}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.list}>
+                {filtered.map((a) => {
+                  const Icon = ACTIVITY_ICONS[a.activityType] || Footprints;
+                  const label = a.activityType.charAt(0).toUpperCase() + a.activityType.slice(1);
+                  return (
+                    <View key={a.id} style={styles.card}>
+                      <View style={styles.iconWrap}>
+                        <Icon size={18} color="rgba(255, 255, 255, 0.5)" />
+                      </View>
+                      <View style={styles.infoCol}>
+                        <Text style={styles.cardLabel}>{label}</Text>
+                        <Text style={styles.cardSub}>{formatDate(a.startTime)} · {a.caloriesBurned} kcal</Text>
+                      </View>
+                      <View style={styles.metricCol}>
+                        <Text style={styles.cardDist}>{a.distanceKm.toFixed(1)} km</Text>
+                        <Text style={styles.cardTime}>{formatDuration(a.durationSeconds)}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </ScrollView>
+        )}
 
         <BottomNav active="activity" />
       </SafeAreaView>
@@ -234,6 +292,14 @@ const styles = StyleSheet.create({
   },
   cardTime: {
     fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.4)',
+  },
+  emptyState: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
     color: 'rgba(255, 255, 255, 0.4)',
   },
 });

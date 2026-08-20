@@ -96,6 +96,90 @@ export const profileAPI = {
     const response = await api.get('/api/services/profile/getBMI');
     return response.data;
   },
+
+  getMe: async () => {
+    const response = await api.get('/api/services/profile/me');
+    return response.data;
+  },
+};
+
+// Steps & Activity API calls
+export const stepsAPI = {
+  syncSteps: async (data: { date: string; steps: number; active_minutes?: number }) => {
+    const response = await api.post('/api/services/steps/sync', data);
+    return response.data;
+  },
+
+  getToday: async (date?: string) => {
+    const params = date ? { date } : {};
+    const response = await api.get('/api/services/steps/today', { params });
+    return response.data;
+  },
+
+  getHistory: async (startDate?: string, endDate?: string) => {
+    const params: Record<string, string> = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    const response = await api.get('/api/services/steps/history', { params });
+    return response.data;
+  },
+
+  getWeekly: async () => {
+    const response = await api.get('/api/services/steps/weekly');
+    return response.data;
+  },
+
+  getMonthly: async () => {
+    const response = await api.get('/api/services/steps/monthly');
+    return response.data;
+  },
+
+  getStats: async () => {
+    const response = await api.get('/api/services/steps/stats');
+    return response.data;
+  },
+
+  getStreak: async () => {
+    const response = await api.get('/api/services/steps/streak');
+    return response.data;
+  },
+
+  getGoal: async () => {
+    const response = await api.get('/api/services/steps/goal');
+    return response.data;
+  },
+
+  updateGoal: async (goal: number) => {
+    const response = await api.put('/api/services/steps/goal', { goal });
+    return response.data;
+  },
+};
+
+// Hydration API calls
+export const hydrationAPI = {
+  getToday: async () => {
+    const response = await api.get('/api/hydration/today');
+    return response.data;
+  },
+
+  logWater: async (amount: number) => {
+    const response = await api.patch('/api/hydration/log', { amount });
+    return response.data;
+  },
+
+  getWeekly: async () => {
+    const response = await api.get('/api/hydration/weekly');
+    return response.data;
+  },
+
+  setup: async (data: {
+    wakeTime: string;
+    sleepTime: string;
+    activityLevel: 'Sedentary' | 'Moderate' | 'Active';
+  }) => {
+    const response = await api.post('/api/hydration/setup', data);
+    return response.data;
+  },
 };
 
 // Road Network & Safety Routing API calls
