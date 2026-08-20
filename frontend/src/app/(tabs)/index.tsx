@@ -20,6 +20,9 @@ import {
   Award,
   Activity,
   Zap,
+  Flame,
+  Clock,
+  TrendingUp,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { workoutStorage, type CumulativeStats } from '@/services/workoutStorage';
@@ -137,19 +140,28 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
-        {/* 3 Square Stat Cards Row (Real Data) */}
+        {/* 3 Premium Glassmorphic Telemetry Stat Cards */}
         <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.statsSquareRow}>
           <View style={styles.squareCard}>
+            <View style={[styles.statIconBadge, { backgroundColor: 'rgba(255, 107, 74, 0.12)' }]}>
+              <Flame size={16} color="#FF6B4A" />
+            </View>
             <Text style={styles.squareVal}>{stats.totalCaloriesBurned}</Text>
             <Text style={styles.squareUnit}>Active Cal</Text>
           </View>
 
           <View style={styles.squareCard}>
+            <View style={[styles.statIconBadge, { backgroundColor: 'rgba(0, 229, 255, 0.12)' }]}>
+              <TrendingUp size={16} color="#00E5FF" />
+            </View>
             <Text style={styles.squareVal}>{stats.totalDistanceKm.toFixed(2)}</Text>
-            <Text style={styles.squareUnit}>km Distance</Text>
+            <Text style={styles.squareUnit}>Km Distance</Text>
           </View>
 
           <View style={styles.squareCard}>
+            <View style={[styles.statIconBadge, { backgroundColor: 'rgba(0, 212, 148, 0.12)' }]}>
+              <Clock size={16} color="#00D494" />
+            </View>
             <Text style={styles.squareVal}>{moveMin}</Text>
             <Text style={styles.squareUnit}>Move Min</Text>
           </View>
@@ -301,7 +313,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#101014',
+    backgroundColor: '#0A0A0F',
   },
   header: {
     flexDirection: 'row',
@@ -363,31 +375,33 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
   },
   ringOuter: {
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    borderWidth: 6,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    borderWidth: 5,
     borderColor: '#00D494',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#00D494',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
+    shadowOpacity: 0.55,
+    shadowRadius: 20,
+    elevation: 12,
   },
   ringInner: {
-    width: 144,
-    height: 144,
-    borderRadius: 72,
-    borderWidth: 6,
+    width: 152,
+    height: 152,
+    borderRadius: 76,
+    borderWidth: 5,
     borderColor: '#00E5FF',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#14141A',
+    backgroundColor: 'rgba(12, 12, 18, 0.85)',
     shadowColor: '#00E5FF',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 10,
   },
   ringPrimaryVal: {
     fontSize: 38,
@@ -426,17 +440,31 @@ const styles = StyleSheet.create({
   },
   squareCard: {
     flex: 1,
-    backgroundColor: '#181820',
+    backgroundColor: 'rgba(20, 22, 34, 0.75)',
     borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderTopColor: 'rgba(255, 255, 255, 0.14)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  statIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   squareVal: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: -0.5,
@@ -444,19 +472,25 @@ const styles = StyleSheet.create({
   squareUnit: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#64748B',
-    marginTop: 3,
+    color: '#94A3B8',
+    marginTop: 4,
+    letterSpacing: 0.3,
     textTransform: 'uppercase',
   },
 
   // Section Cards
   sectionCard: {
-    backgroundColor: '#181820',
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: 'rgba(24, 24, 36, 0.55)',
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 5,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -532,16 +566,20 @@ const styles = StyleSheet.create({
 
   // Target Bar
   targetBarTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#2D2D3A',
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: 'rgba(45, 45, 58, 0.8)',
     overflow: 'hidden',
     marginBottom: 12,
   },
   targetBarFill: {
     height: '100%',
     backgroundColor: '#00D494',
-    borderRadius: 3,
+    borderRadius: 4,
+    shadowColor: '#00D494',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
   },
   whoBanner: {
     flexDirection: 'row',
@@ -660,15 +698,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: Platform.OS === 'ios' ? 95 : 75,
     right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     overflow: 'hidden',
     shadowColor: '#00E5FF',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.55,
+    shadowRadius: 16,
+    elevation: 14,
   },
   fabGradient: {
     width: '100%',

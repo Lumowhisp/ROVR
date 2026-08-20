@@ -19,7 +19,7 @@ import {
   Compass,
   Mountain,
   ChevronRight,
-  ShieldCheck,
+  Sparkles,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { ActivityType } from '@/types/workout';
@@ -206,11 +206,18 @@ export default function TrackWorkoutScreen() {
 
         {/* Safe Corridor AI Highlight Card */}
         <View style={styles.aiSafeCard}>
-          <ShieldCheck size={20} color="#00E5FF" />
+          <View style={styles.aiSafeIconWrap}>
+            <Sparkles size={16} color="#00E5FF" />
+          </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.aiSafeTitle}>AI Safe Routing Enabled</Text>
+            <View style={styles.aiSafeBadgeRow}>
+              <Text style={styles.aiSafeTitle}>AI Safe Routing</Text>
+              <View style={styles.aiActiveBadge}>
+                <Text style={styles.aiActiveBadgeText}>ACTIVE</Text>
+              </View>
+            </View>
             <Text style={styles.aiSafeDesc}>
-              Tap ✨ during your workout to generate a well-lit safe loop.
+              Tap the ✨ icon during tracking to calculate a verified well-lit loop.
             </Text>
           </View>
         </View>
@@ -244,7 +251,7 @@ export default function TrackWorkoutScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#101014',
+    backgroundColor: '#0A0A0F',
   },
   header: {
     paddingHorizontal: 20,
@@ -299,20 +306,25 @@ const styles = StyleSheet.create({
     width: (SCREEN_WIDTH - 44) / 2,
   },
   squareCard: {
-    backgroundColor: '#181820',
-    borderRadius: 20,
-    padding: 16,
+    backgroundColor: 'rgba(24, 24, 36, 0.55)',
+    borderRadius: 22,
+    padding: 18,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4,
   },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   cardTitle: {
     fontSize: 15,
@@ -332,12 +344,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   targetChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#181820',
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 14,
+    backgroundColor: 'rgba(24, 24, 36, 0.55)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   targetChipActive: {
     backgroundColor: 'rgba(0, 229, 255, 0.12)',
@@ -357,22 +369,54 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#181820',
-    borderRadius: 16,
+    backgroundColor: 'rgba(20, 22, 34, 0.75)',
+    borderRadius: 18,
     padding: 14,
     marginTop: 24,
     borderWidth: 1,
-    borderColor: 'rgba(0, 229, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderTopColor: 'rgba(255, 255, 255, 0.16)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  aiSafeIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 229, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiSafeBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
   },
   aiSafeTitle: {
     fontSize: 13,
     fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  aiActiveBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0, 229, 255, 0.12)',
+  },
+  aiActiveBadgeText: {
+    fontSize: 8,
+    fontWeight: '800',
     color: '#00E5FF',
+    letterSpacing: 0.6,
   },
   aiSafeDesc: {
     fontSize: 11,
     color: '#94A3B8',
-    marginTop: 2,
+    lineHeight: 15,
   },
 
   // Footer CTA
@@ -388,8 +432,13 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   startBtn: {
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: 'hidden',
+    shadowColor: '#00E5FF',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
   },
   startGradient: {
     flexDirection: 'row',
@@ -402,6 +451,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
     color: '#000000',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
 });
