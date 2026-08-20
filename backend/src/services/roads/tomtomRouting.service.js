@@ -29,6 +29,20 @@ const TRAVEL_MODE_MAP = {
  * @param {string} apiKey  TomTom API key
  * @returns {Promise<{ coordinates: number[][], distanceMeters: number, travelTimeSeconds: number }>}
  */
+/**
+ * Generate a road-snapped loop route via TomTom Calculate Route API.
+ *
+ * Strategy:
+ *  1. Calibrate radial distance based on target km
+ *  2. Try multiple angular orientations to find the smoothest loop
+ *  3. TomTom returns full road-snapped geometry that starts and finishes at startPoint
+ *
+ * @param {{ lat: number, lng: number }} startPoint
+ * @param {number} distanceKm  Desired loop distance (km)
+ * @param {"walking"|"running"|"cycling"} mode
+ * @param {string} apiKey  TomTom API key
+ * @returns {Promise<{ coordinates: number[][], distanceMeters: number, travelTimeSeconds: number }>}
+ */
 export async function generateTomTomLoopRoute({
   startPoint,
   distanceKm,
@@ -40,78 +54,83 @@ export async function generateTomTomLoopRoute({
   }
 
   const travelMode = TRAVEL_MODE_MAP[mode] || "pedestrian";
+  const parsedDistKm = Number(distanceKm) || 2.0;
 
-  // --- Build waypoints in a loop pattern ---
-  // Radius = targetDistance / (2π) with slight padding to hit the target
-  const radiusKm = distanceKm / (2 * Math.PI * 1.15);
+  // Calibrate winding factor according to target distance
+  const windingFactor =
+    parsedDistKm <= 1.5 ? 0.95 : parsedDistKm <= 4.0 ? 1.45 : parsedDistKm <= 7.0 ? 1.25 : 1.25;
+  const waypointCount = parsedDistKm <= 2.0 ? 3 : parsedDistKm <= 7.0 ? 4 : 5;
+
+  const radiusKm = Math.max(0.15, parsedDistKm / (2 * Math.PI * windingFactor));
   const latDelta = radiusKm / 111.32;
   const lngDelta = radiusKm / (111.32 * Math.cos((startPoint.lat * Math.PI) / 180));
 
-  // Use more waypoints for longer routes to get a rounder loop
-  const waypointCount = distanceKm <= 1.5 ? 3 : distanceKm <= 5 ? 4 : 5;
+  // Try standard orientation angles: 0, 45, 90 deg until a valid road loop is found
+  const candidateAngles = [0, 45, 90, 135];
+  let lastError = null;
 
-  // Spread waypoints evenly around the circle with a random rotation offset
-  // so routes aren't always pointing the same direction
-  const offsetDeg = Math.random() * 360;
-  const angleStep = 360 / waypointCount;
+  for (const offsetDeg of candidateAngles) {
+    try {
+      const angleStep = 360 / waypointCount;
+      const waypoints = [];
 
-  const waypoints = [];
-  for (let i = 0; i < waypointCount; i++) {
-    const angleDeg = offsetDeg + i * angleStep;
-    const angleRad = (angleDeg * Math.PI) / 180;
-    const wpLat = startPoint.lat + latDelta * Math.sin(angleRad);
-    const wpLng = startPoint.lng + lngDelta * Math.cos(angleRad);
-    waypoints.push(`${wpLat.toFixed(6)},${wpLng.toFixed(6)}`);
-  }
+      for (let i = 0; i < waypointCount; i++) {
+        const angleDeg = offsetDeg + i * angleStep;
+        const angleRad = (angleDeg * Math.PI) / 180;
+        const wpLat = startPoint.lat + latDelta * Math.sin(angleRad);
+        const wpLng = startPoint.lng + lngDelta * Math.cos(angleRad);
+        waypoints.push(`${wpLat.toFixed(6)},${wpLng.toFixed(6)}`);
+      }
 
-  const locations = [
-    `${startPoint.lat},${startPoint.lng}`,
-    ...waypoints,
-    `${startPoint.lat},${startPoint.lng}`,
-  ].join(":");
+      const locations = [
+        `${startPoint.lat},${startPoint.lng}`,
+        ...waypoints,
+        `${startPoint.lat},${startPoint.lng}`,
+      ].join(":");
 
-  const url = new URL(`${TOMTOM_ROUTE_URL}/${locations}/json`);
-  url.searchParams.set("key", apiKey);
-  url.searchParams.set("travelMode", travelMode);
-  url.searchParams.set("routeType", "fastest");
-  url.searchParams.set("traffic", "true");
+      const url = new URL(`${TOMTOM_ROUTE_URL}/${locations}/json`);
+      url.searchParams.set("key", apiKey);
+      url.searchParams.set("travelMode", travelMode);
+      url.searchParams.set("routeType", "fastest");
+      url.searchParams.set("traffic", "true");
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(
-      `TomTom routing failed (${response.status}): ${text.slice(0, 200)}`
-    );
-  }
+      const response = await fetch(url);
+      if (!response.ok) {
+        continue;
+      }
 
-  const data = await response.json();
-  const route = data.routes?.[0];
-  if (!route || !route.legs) {
-    throw new Error("TomTom returned no valid route");
-  }
+      const data = await response.json();
+      const route = data.routes?.[0];
+      if (!route || !Array.isArray(route.legs) || route.legs.length === 0) {
+        continue;
+      }
 
-  // Stitch leg points into a single coordinate array [lng, lat] (GeoJSON order)
-  const coordinates = [];
-  let totalDistanceMeters = 0;
-  let totalTravelTimeSeconds = 0;
+      // Stitch leg points into a single coordinate array [lng, lat]
+      const coordinates = [];
+      let totalDistanceMeters = 0;
+      let totalTravelTimeSeconds = 0;
 
-  for (const leg of route.legs) {
-    totalDistanceMeters += leg.summary?.lengthInMeters || 0;
-    totalTravelTimeSeconds += leg.summary?.travelTimeInSeconds || 0;
+      for (const leg of route.legs) {
+        totalDistanceMeters += leg.summary?.lengthInMeters || 0;
+        totalTravelTimeSeconds += leg.summary?.travelTimeInSeconds || 0;
 
-    for (const point of leg.points || []) {
-      coordinates.push([point.longitude, point.latitude]);
+        for (const point of leg.points || []) {
+          coordinates.push([point.longitude, point.latitude]);
+        }
+      }
+
+      if (coordinates.length >= 3) {
+        coordinates.push([startPoint.lng, startPoint.lat]);
+        return {
+          coordinates,
+          distanceMeters: totalDistanceMeters,
+          travelTimeSeconds: totalTravelTimeSeconds,
+        };
+      }
+    } catch (err) {
+      lastError = err;
     }
   }
 
-  // Close the loop — ensure first and last point match
-  if (coordinates.length > 0) {
-    coordinates.push([startPoint.lng, startPoint.lat]);
-  }
-
-  return {
-    coordinates,
-    distanceMeters: totalDistanceMeters,
-    travelTimeSeconds: totalTravelTimeSeconds,
-  };
+  throw lastError || new Error("Could not calculate a connected loop route from this location");
 }

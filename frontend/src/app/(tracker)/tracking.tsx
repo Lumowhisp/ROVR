@@ -245,6 +245,35 @@ export default function TrackingScreen() {
             timestamp: loc.timestamp || Date.now(),
           };
           setCurrentLocation(initialCoord);
+
+          // Auto-generate target distance loop route if user selected a target distance
+          if (targetDistanceKm > 0) {
+            try {
+              setIsRoutingLoading(true);
+              const mode = activityType === 'cycling' ? 'cycling' : activityType === 'running' ? 'running' : 'walking';
+              const res = await roadsAPI.getLoopRoute({
+                lat: initialCoord.latitude,
+                lng: initialCoord.longitude,
+                distanceKm: targetDistanceKm,
+                mode,
+                areaKey: 'kp3',
+              });
+              if (res && res.success && res.data) {
+                const routeFeature = res.data;
+                setRecommendedRoute({
+                  coordinates: routeFeature.geometry.coordinates,
+                  distanceKm: routeFeature.properties.distanceKm,
+                  safetyScore: routeFeature.properties.safetyScore,
+                  mode: routeFeature.properties.mode,
+                  segmentCount: routeFeature.properties.segmentCount,
+                });
+              }
+            } catch (routeErr) {
+              console.log('Auto loop route generation info:', routeErr);
+            } finally {
+              setIsRoutingLoading(false);
+            }
+          }
         }
       } catch (err) {
         console.log('Location init error:', err);
@@ -256,7 +285,7 @@ export default function TrackingScreen() {
       stopGPSWatch();
       stopTimer();
     };
-  }, []);
+  }, [activityType, targetDistanceKm]);
 
   // Preload Road Segments for Safety Heatmap
   useEffect(() => {
