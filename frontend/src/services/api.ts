@@ -6,15 +6,23 @@ const RENDER_BACKEND_URL = process.env.EXPO_PUBLIC_API_URL || 'https://rovr.onre
 
 // Automatically detect host IP in local dev or fallback to live Render backend
 const getBaseUrl = () => {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+
   const hostUri =
     Constants.expoConfig?.hostUri ||
     (Constants as unknown as { expoGoConfig?: { debuggerHost?: string } }).expoGoConfig?.debuggerHost ||
     (Constants as unknown as { manifest?: { debuggerHost?: string } }).manifest?.debuggerHost;
 
-  if (hostUri) {
+  // Only use local dev server if not in tunnel / cloud mode
+  if (hostUri && !hostUri.includes('ngrok') && !hostUri.includes('expo.dev')) {
     const ip = hostUri.split(':')[0];
-    return `http://${ip}:3000`;
+    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+      return `http://${ip}:3000`;
+    }
   }
+
   return RENDER_BACKEND_URL;
 };
 
@@ -23,7 +31,7 @@ const BASE_URL = getBaseUrl();
 // eslint-disable-next-line import/no-named-as-default-member
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000,
+  timeout: 8000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -96,14 +104,9 @@ export const profileAPI = {
     const response = await api.get('/api/services/profile/getBMI');
     return response.data;
   },
-
-  getMe: async () => {
-    const response = await api.get('/api/services/profile/me');
-    return response.data;
-  },
 };
 
-// Steps & Activity API calls
+// Steps & Activity API calls (MongoDB backend on main)
 export const stepsAPI = {
   syncSteps: async (data: { date: string; steps: number; active_minutes?: number }) => {
     const response = await api.post('/api/services/steps/sync', data);
@@ -157,18 +160,8 @@ export const stepsAPI = {
 
 // Hydration API calls
 export const hydrationAPI = {
-  getToday: async () => {
-    const response = await api.get('/api/hydration/today');
-    return response.data;
-  },
-
-  logWater: async (amount: number) => {
-    const response = await api.patch('/api/hydration/log', { amount });
-    return response.data;
-  },
-
-  getWeekly: async () => {
-    const response = await api.get('/api/hydration/weekly');
+  createDaily: async () => {
+    const response = await api.post('/api/hydration/daily');
     return response.data;
   },
 

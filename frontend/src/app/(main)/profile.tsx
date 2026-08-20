@@ -8,15 +8,14 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
-  ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Settings, ArrowLeft, Star, Crown, ArrowRight, Target, Trophy } from 'lucide-react-native';
 import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/context/AuthContext';
-import { profileAPI, stepsAPI, hydrationAPI } from '@/services/api';
+import { profileAPI, stepsAPI } from '@/services/api';
 import { workoutStorage } from '@/services/workoutStorage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ACHIEVEMENTS_STRIP = [
   { label: 'First 5K', emoji: '🏅', done: true },
@@ -39,15 +38,14 @@ interface ProfileData {
 export default function ProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileData>({
-    totalDistance: '--',
-    totalActivities: '--',
-    monthlyGoal: '--',
-    achievements: '--',
-    bmi: '--',
-    weight: '--',
-    hydration: '--',
+    totalDistance: '0.0 km',
+    totalActivities: '0',
+    monthlyGoal: '0%',
+    achievements: '0',
+    bmi: user?.bmi ? user.bmi.toFixed(1) : '21.4',
+    weight: user?.weight ? `${user.weight} kg` : '70 kg',
+    hydration: '2.8 L',
   });
 
   const fullName = user?.name || 'User';
@@ -60,75 +58,71 @@ export default function ProfileScreen() {
 
   const loadProfile = useCallback(async () => {
     try {
-      setLoading(true);
-
       const data: ProfileData = {
-        totalDistance: '--',
-        totalActivities: '--',
-        monthlyGoal: '--',
-        achievements: '--',
-        bmi: '--',
-        weight: '--',
-        hydration: '--',
+        totalDistance: '0.0 km',
+        totalActivities: '0',
+        monthlyGoal: '0%',
+        achievements: '0',
+        bmi: user?.bmi ? user.bmi.toFixed(1) : '21.4',
+        weight: user?.weight ? `${user.weight} kg` : '70 kg',
+        hydration: '2.8 L',
       };
 
-      // Fetch user profile from backend
+      // 1. Fetch BMI from backend
       try {
-        const meRes = await profileAPI.getMe();
-        if (meRes?.data) {
-          const u = meRes.data;
-          data.bmi = u.bmi ? u.bmi.toFixed(1) : '--';
-          data.weight = u.weight ? `${u.weight} kg` : '--';
+        const bmiRes = await profileAPI.getBMI();
+        if (bmiRes && bmiRes.bmi) {
+          data.bmi = Number(bmiRes.bmi).toFixed(1);
         }
-      } catch {
-        // Fallback to auth context
-        data.bmi = user?.bmi ? String(user.bmi) : '--';
-        data.weight = user?.weight ? `${user.weight} kg` : '--';
+      } catch (err) {
+        console.log('BMI fetch error:', err);
       }
 
-      // Fetch stats — try backend then local
+      // 2. Fetch stats from backend or local workout storage
       try {
         const statsRes = await stepsAPI.getStats();
         if (statsRes?.data) {
           const s = statsRes.data;
-          data.totalDistance = `${(s.totalDistance ?? s.total_distance_km ?? 0).toFixed(1)} km`;
-          data.totalActivities = `${s.totalActivities ?? s.totalDays ?? 0}`;
+          data.totalDistance = `${(s.total_distance_km ?? 0).toFixed(1)} km`;
+          data.totalActivities = `${s.total_days_tracked ?? s.days_tracked ?? 0}`;
         }
-      } catch {
-        // Fallback to local
-        const stats = await workoutStorage.getCumulativeStats();
-        data.totalDistance = `${stats.totalDistanceKm.toFixed(1)} km`;
-        data.totalActivities = `${stats.totalWorkouts}`;
+      } catch (err) {
+        console.log('Steps stats fetch error:', err);
       }
 
-      // Monthly goal from local workouts
+      // 3. Cumulative stats from local workout storage
+      const stats = await workoutStorage.getCumulativeStats();
+      if (stats.totalWorkouts > 0) {
+        data.totalDistance = `${stats.totalDistanceKm.toFixed(1)} km`;
+        data.totalActivities = `${stats.totalWorkouts}`;
+        data.achievements = `${stats.totalXP} XP`;
+      } else if (data.achievements === '0') {
+        data.achievements = `${stats.totalXP} XP`;
+      }
+
+      // 4. Calculate monthly goal %
       const workouts = await workoutStorage.getAllWorkouts();
       const now = Date.now();
       const monthAgo = now - 30 * 24 * 60 * 60 * 1000;
       const monthWorkouts = workouts.filter((w) => w.startTime >= monthAgo);
       const monthDist = monthWorkouts.reduce((s, w) => s + w.distanceKm, 0);
-      const monthGoalKm = 100; // 100km monthly goal
+      const monthGoalKm = 50; // 50 km monthly target
       data.monthlyGoal = `${Math.min(Math.round((monthDist / monthGoalKm) * 100), 100)}%`;
 
-      // XP as achievements count
-      const stats = await workoutStorage.getCumulativeStats();
-      data.achievements = `${stats.totalXP}`;
-
-      // Hydration
-      try {
-        const hydRes = await hydrationAPI.getToday();
-        if (hydRes?.data) {
-          data.hydration = `${(hydRes.data.consumed / 1000).toFixed(1)} L`;
-        }
-      } catch {
-        data.hydration = '--';
+      // 5. Today's hydration
+      const todayKey = `rovr_hydration_${new Date().toISOString().split('T')[0]}`;
+      const stored = await AsyncStorage.getItem(todayKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const total = parsed.reduce((sum: number, item: { ml: number }) => sum + item.ml, 0);
+        data.hydration = `${(total / 1000).toFixed(1)} L`;
+      } else if (user?.weight) {
+        data.hydration = `${((user.weight * 35) / 1000).toFixed(1)} L`;
       }
 
       setProfile(data);
     } catch (err) {
       console.log('Profile load error:', err);
-    } finally {
-      setLoading(false);
     }
   }, [user]);
 
@@ -174,97 +168,93 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {loading ? (
-          <ActivityIndicator color="#9BEA20" style={{ flex: 1 }} />
-        ) : (
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Avatar Section */}
-            <View style={styles.avatarSection}>
-              <View style={styles.avatarWrap}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{initials}</Text>
-                </View>
-
-                {/* Gold Star Badge */}
-                <View style={styles.starBadge}>
-                  <Star size={14} color="#FFFFFF" fill="#FFFFFF" />
-                </View>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Avatar Section */}
+          <View style={styles.avatarSection}>
+            <View style={styles.avatarWrap}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initials}</Text>
               </View>
 
-              <Text style={styles.userName}>{fullName}</Text>
-
-              {/* Active Crown Pill */}
-              <View style={styles.activePill}>
-                <Crown size={13} color="#F59E0B" />
-                <Text style={styles.activePillText}>Active Member</Text>
+              {/* Gold Star Badge */}
+              <View style={styles.starBadge}>
+                <Star size={14} color="#FFFFFF" fill="#FFFFFF" />
               </View>
             </View>
 
-            {/* Tracking Section */}
-            <Text style={styles.sectionLabel}>TRACKING</Text>
-            <View style={styles.trackingGrid}>
-              {trackingItems.map((m) => {
-                const Icon = m.icon;
-                return (
-                  <View key={m.label} style={styles.trackingCard}>
-                    <View style={styles.trackingIconWrap}>
-                      <Icon size={14} color="rgba(255, 255, 255, 0.4)" />
-                    </View>
-                    <View>
-                      <Text style={styles.trackingLbl}>{m.label}</Text>
-                      <Text style={styles.trackingVal}>{m.value}</Text>
-                    </View>
+            <Text style={styles.userName}>{fullName}</Text>
+
+            {/* Active Crown Pill */}
+            <View style={styles.activePill}>
+              <Crown size={13} color="#F59E0B" />
+              <Text style={styles.activePillText}>Active Member</Text>
+            </View>
+          </View>
+
+          {/* Tracking Section */}
+          <Text style={styles.sectionLabel}>TRACKING</Text>
+          <View style={styles.trackingGrid}>
+            {trackingItems.map((m) => {
+              const Icon = m.icon;
+              return (
+                <View key={m.label} style={styles.trackingCard}>
+                  <View style={styles.trackingIconWrap}>
+                    <Icon size={14} color="rgba(255, 255, 255, 0.4)" />
                   </View>
-                );
-              })}
-            </View>
-
-            {/* Fitness Profile */}
-            <Text style={styles.sectionLabel}>FITNESS PROFILE</Text>
-            <View style={styles.fitnessRow}>
-              {fitnessItems.map((m) => (
-                <View key={m.label} style={styles.fitnessCard}>
-                  <Text style={styles.fitnessVal}>{m.value}</Text>
-                  <Text style={styles.fitnessLbl}>{m.label}</Text>
+                  <View>
+                    <Text style={styles.trackingLbl}>{m.label}</Text>
+                    <Text style={styles.trackingVal}>{m.value}</Text>
+                  </View>
                 </View>
-              ))}
-            </View>
+              );
+            })}
+          </View>
 
-            {/* Achievements Strip Header */}
-            <View style={styles.achievementsHeader}>
-              <Text style={styles.sectionLabel}>ACHIEVEMENTS</Text>
-              <TouchableOpacity onPress={() => router.push('/(main)/achievements' as any)}>
-                <Text style={styles.seeAllText}>See all</Text>
-              </TouchableOpacity>
-            </View>
+          {/* Fitness Profile */}
+          <Text style={styles.sectionLabel}>FITNESS PROFILE</Text>
+          <View style={styles.fitnessRow}>
+            {fitnessItems.map((m) => (
+              <View key={m.label} style={styles.fitnessCard}>
+                <Text style={styles.fitnessVal}>{m.value}</Text>
+                <Text style={styles.fitnessLbl}>{m.label}</Text>
+              </View>
+            ))}
+          </View>
 
-            {/* Horizontal Achievements Strip */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.achievementsScroll}
-            >
-              {ACHIEVEMENTS_STRIP.map((a) => (
-                <View
-                  key={a.label}
-                  style={[
-                    styles.achievementBadge,
-                    !a.done && styles.achievementBadgeLocked,
-                  ]}
-                >
-                  <Text style={styles.achievementEmoji}>{a.emoji}</Text>
-                  <Text style={styles.achievementTitle} numberOfLines={2}>
-                    {a.label}
-                  </Text>
-                </View>
-              ))}
-            </ScrollView>
+          {/* Achievements Strip Header */}
+          <View style={styles.achievementsHeader}>
+            <Text style={styles.sectionLabel}>ACHIEVEMENTS</Text>
+            <TouchableOpacity onPress={() => router.push('/(main)/achievements' as any)}>
+              <Text style={styles.seeAllText}>See all</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Horizontal Achievements Strip */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.achievementsScroll}
+          >
+            {ACHIEVEMENTS_STRIP.map((a) => (
+              <View
+                key={a.label}
+                style={[
+                  styles.achievementBadge,
+                  !a.done && styles.achievementBadgeLocked,
+                ]}
+              >
+                <Text style={styles.achievementEmoji}>{a.emoji}</Text>
+                <Text style={styles.achievementTitle} numberOfLines={2}>
+                  {a.label}
+                </Text>
+              </View>
+            ))}
           </ScrollView>
-        )}
+        </ScrollView>
 
         <BottomNav active="profile" />
       </SafeAreaView>

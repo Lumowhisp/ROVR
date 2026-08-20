@@ -8,13 +8,14 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
-  ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path } from 'react-native-svg';
 import { ProgressRing } from '@/components/ui';
 import BottomNav from '@/components/BottomNav';
 import { hydrationAPI } from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
 import * as Haptics from 'expo-haptics';
 
 interface HydrationLog {
@@ -32,45 +33,45 @@ function DropletIcon() {
 }
 
 export default function HydrationScreen() {
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   const [goal, setGoal] = useState(2800);
   const [consumed, setConsumed] = useState(0);
-  const [weeklyAvg, setWeeklyAvg] = useState('--');
   const [logs, setLogs] = useState<HydrationLog[]>([]);
 
+  const todayKey = `rovr_hydration_${new Date().toISOString().split('T')[0]}`;
   const pct = goal > 0 ? Math.min(Math.round((consumed / goal) * 100), 100) : 0;
 
   const loadData = useCallback(async () => {
     try {
-      setLoading(true);
+      // Calculate daily goal based on weight if available
+      const calculatedGoal = user?.weight ? Math.round(user.weight * 35) : 2800;
+      setGoal(calculatedGoal);
 
-      // Fetch today's hydration from backend
+      // Try syncing with backend daily record
       try {
-        const todayRes = await hydrationAPI.getToday();
-        if (todayRes?.data) {
-          setGoal(todayRes.data.goal || 2800);
-          setConsumed(todayRes.data.consumed || 0);
+        const dailyRes = await hydrationAPI.createDaily();
+        if (dailyRes && dailyRes.goal) {
+          setGoal(dailyRes.goal);
+          if (dailyRes.consumed > 0) {
+            setConsumed(dailyRes.consumed);
+          }
         }
       } catch (err) {
-        console.log('Hydration today fetch error:', err);
+        console.log('Backend daily hydration record sync error:', err);
       }
 
-      // Fetch weekly average
-      try {
-        const weeklyRes = await hydrationAPI.getWeekly();
-        if (weeklyRes?.data) {
-          const avgMl = weeklyRes.data.avgConsumedMl || 0;
-          setWeeklyAvg(`${(avgMl / 1000).toFixed(1)} L`);
-        }
-      } catch {
-        setWeeklyAvg('--');
+      // Load saved logs for today from AsyncStorage
+      const stored = await AsyncStorage.getItem(todayKey);
+      if (stored) {
+        const parsed: HydrationLog[] = JSON.parse(stored);
+        setLogs(parsed);
+        const total = parsed.reduce((sum, item) => sum + item.ml, 0);
+        setConsumed(total);
       }
     } catch (err) {
       console.log('Hydration load error:', err);
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  }, [user, todayKey]);
 
   useFocusEffect(
     useCallback(() => {
@@ -81,9 +82,6 @@ export default function HydrationScreen() {
   const handleAddWater = async (amount = 250) => {
     try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
 
-    // Optimistic update
-    setConsumed((prev) => prev + amount);
-
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const newLog: HydrationLog = {
@@ -91,31 +89,19 @@ export default function HydrationScreen() {
       time: timeStr,
       ml: amount,
     };
-    setLogs((prev) => [newLog, ...prev]);
 
-    // Persist to backend
+    const updatedLogs = [newLog, ...logs];
+    const newTotal = consumed + amount;
+
+    setLogs(updatedLogs);
+    setConsumed(newTotal);
+
     try {
-      const res = await hydrationAPI.logWater(amount);
-      if (res?.data) {
-        setConsumed(res.data.consumed);
-      }
+      await AsyncStorage.setItem(todayKey, JSON.stringify(updatedLogs));
     } catch (err) {
-      console.log('Failed to log water to backend:', err);
-      // Keep optimistic update
+      console.log('Failed saving hydration log:', err);
     }
   };
-
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" translucent />
-        <SafeAreaView style={styles.safeArea}>
-          <ActivityIndicator color="#22D3EE" style={{ flex: 1 }} />
-          <BottomNav active="home" />
-        </SafeAreaView>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -158,8 +144,8 @@ export default function HydrationScreen() {
                 <Text style={styles.summaryLbl}>Daily Goal</Text>
               </View>
               <View style={styles.summaryBox}>
-                <Text style={styles.summaryVal}>{weeklyAvg}</Text>
-                <Text style={styles.summaryLbl}>Weekly Avg</Text>
+                <Text style={styles.summaryVal}>{(consumed / 1000).toFixed(1)} L</Text>
+                <Text style={styles.summaryLbl}>Today Consumed</Text>
               </View>
             </View>
           </View>
@@ -183,7 +169,7 @@ export default function HydrationScreen() {
           </View>
 
           {/* Today's Log */}
-          {logs.length > 0 && (
+          {logs.length > 0 ? (
             <>
               <Text style={styles.sectionHeader}>TODAY&apos;S LOG</Text>
               <View style={styles.logsList}>
@@ -198,6 +184,10 @@ export default function HydrationScreen() {
                 ))}
               </View>
             </>
+          ) : (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>Tap above to log your first water intake today!</Text>
+            </View>
           )}
         </ScrollView>
 
@@ -361,5 +351,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#F7F8F9',
+  },
+  emptyCard: {
+    padding: 24,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  emptyText: {
+    color: 'rgba(255, 255, 255, 0.35)',
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });

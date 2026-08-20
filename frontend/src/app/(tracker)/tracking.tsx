@@ -18,7 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import TomTomMap, { type TomTomMapHandle } from '@/components/map/TomTomMap';
 import type { SafeRouteData } from '@/components/map/mapBridge';
-import { roadsAPI } from '@/services/api';
+import { roadsAPI, stepsAPI } from '@/services/api';
 import {
   Play,
   Pause,
@@ -412,6 +412,21 @@ export default function TrackingScreen() {
       earnedXP,
     };
     await workoutStorage.saveWorkout(summary);
+
+    // Sync to MongoDB backend
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const estimatedSteps = Math.max(1, Math.round(totalDistanceKm * 1320));
+      const activeMin = Math.max(1, Math.round(elapsedSeconds / 60));
+      await stepsAPI.syncSteps({
+        date: todayStr,
+        steps: estimatedSteps,
+        active_minutes: activeMin,
+      });
+    } catch (syncErr) {
+      console.log('MongoDB sync error on workout finish:', syncErr);
+    }
+
     setShowSummaryModal(false);
     router.replace({
       pathname: '/(tracker)/workout-summary' as any,
