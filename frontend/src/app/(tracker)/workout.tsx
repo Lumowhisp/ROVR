@@ -152,6 +152,11 @@ export default function WorkoutScreen() {
       async function loadStats() {
         const cumulative = await workoutStorage.getCumulativeStats();
         setStats(cumulative);
+
+        workoutStorage.syncFromCloud().then(async () => {
+          const fresh = await workoutStorage.getCumulativeStats();
+          setStats(fresh);
+        }).catch(() => {});
       }
       loadStats();
     }, [])

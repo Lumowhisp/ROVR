@@ -8,11 +8,12 @@ import React, {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authAPI } from '@/services/api';
+import { workoutStorage } from '@/services/workoutStorage';
 
 const TOKEN_KEY = 'rovr_token';
 const USER_KEY = 'rovr_user';
 
-interface User {
+export interface User {
   _id: string;
   name: string;
   email: string;
@@ -24,6 +25,11 @@ interface User {
   gender?: string;
   dob?: string;
   limitRating?: number;
+  hydration?: {
+    wakeTime?: string;
+    sleepTime?: string;
+    activityLevel?: 'Sedentary' | 'Moderate' | 'Active';
+  };
 }
 
 interface AuthState {
@@ -34,10 +40,11 @@ interface AuthState {
 }
 
 interface AuthContextType extends AuthState {
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (name: string, email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<User>;
+  signUp: (name: string, email: string, password: string) => Promise<User>;
   signOut: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -50,8 +57,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading: true,
   });
 
+  const signOut = useCallback(async () => {
+    try {
+      await Promise.all([
+        AsyncStorage.removeItem(TOKEN_KEY),
+        AsyncStorage.removeItem(USER_KEY),
+        workoutStorage.clearHistory(),
+      ]);
+    } catch (err) {
+      console.log('Error during sign out storage cleanup:', err);
+    }
+
+    setState({
+      token: null,
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+    });
+  }, []);
+
+  const refreshProfile = useCallback(async () => {
+    try {
+      const res = await authAPI.getMe();
+      if (res && res.user) {
+        const freshUser: User = res.user;
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(freshUser));
+        setState((prev) => ({
+          ...prev,
+          user: freshUser,
+          isAuthenticated: true,
+        }));
+        // Sync workouts from MongoDB across devices
+        workoutStorage.syncFromCloud().catch(() => {});
+      }
+    } catch (err: any) {
+      if (err?.response?.status === 401) {
+        // Token is expired (>7 days) or invalid
+        await signOut();
+      }
+    }
+  }, [signOut]);
+
   // Hydrate auth state from storage on app load
   useEffect(() => {
+    let isMounted = true;
+
     const loadStoredAuth = async () => {
       try {
         const [storedToken, storedUser] = await Promise.all([
@@ -60,24 +110,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ]);
 
         if (storedToken && storedUser) {
-          setState({
-            token: storedToken,
-            user: JSON.parse(storedUser),
-            isAuthenticated: true,
-            isLoading: false,
-          });
+          const parsedUser = JSON.parse(storedUser);
+          if (isMounted) {
+            setState({
+              token: storedToken,
+              user: parsedUser,
+              isAuthenticated: true,
+              isLoading: false,
+            });
+          }
+
+          // Validate token with server in background & pull latest profile & workouts
+          try {
+            const res = await authAPI.getMe();
+            if (res && res.user && isMounted) {
+              const freshUser: User = res.user;
+              await AsyncStorage.setItem(USER_KEY, JSON.stringify(freshUser));
+              setState((prev) => ({
+                ...prev,
+                user: freshUser,
+              }));
+              workoutStorage.syncFromCloud().catch(() => {});
+            }
+          } catch (apiErr: any) {
+            if (apiErr?.response?.status === 401) {
+              // 7-day token expired -> trigger sign out
+              if (isMounted) {
+                await signOut();
+              }
+            }
+          }
         } else {
-          setState((prev) => ({ ...prev, isLoading: false }));
+          if (isMounted) {
+            setState((prev) => ({ ...prev, isLoading: false }));
+          }
         }
       } catch {
-        setState((prev) => ({ ...prev, isLoading: false }));
+        if (isMounted) {
+          setState((prev) => ({ ...prev, isLoading: false }));
+        }
       }
     };
 
     loadStoredAuth();
-  }, []);
 
-  const signIn = useCallback(async (email: string, password: string) => {
+    return () => {
+      isMounted = false;
+    };
+  }, [signOut]);
+
+  const signIn = useCallback(async (email: string, password: string): Promise<User> => {
     const data = await authAPI.signIn(email, password);
     const { token, user: userData } = data;
 
@@ -88,7 +170,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isBMI: userData.isBMI,
       isOnboarded: userData.isOnboarded,
       bmi: userData.bmi,
+      weight: userData.weight,
+      height: userData.height,
+      gender: userData.gender,
+      dob: userData.dob,
       limitRating: userData.limitRating,
+      hydration: userData.hydration,
     };
 
     await Promise.all([
@@ -102,10 +189,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: true,
       isLoading: false,
     });
+
+    // Populate all MongoDB workouts on this device immediately
+    workoutStorage.syncFromCloud().catch(() => {});
+
+    return user;
   }, []);
 
   const signUp = useCallback(
-    async (name: string, email: string, password: string) => {
+    async (name: string, email: string, password: string): Promise<User> => {
       const data = await authAPI.signUp(name, email, password);
       const { token, user: userData } = data;
 
@@ -116,7 +208,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isBMI: userData.isBMI,
         isOnboarded: userData.isOnboarded,
         bmi: userData.bmi,
+        weight: userData.weight,
+        height: userData.height,
+        gender: userData.gender,
+        dob: userData.dob,
         limitRating: userData.limitRating,
+        hydration: userData.hydration,
       };
 
       await Promise.all([
@@ -130,29 +227,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: true,
         isLoading: false,
       });
+
+      return user;
     },
     []
   );
-
-  const signOut = useCallback(async () => {
-    await Promise.all([
-      AsyncStorage.removeItem(TOKEN_KEY),
-      AsyncStorage.removeItem(USER_KEY),
-    ]);
-
-    setState({
-      token: null,
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-    });
-  }, []);
 
   const updateUser = useCallback(async (userData: Partial<User>) => {
     setState((prev) => {
       if (!prev.user) return prev;
       const updatedUser = { ...prev.user, ...userData };
-      // Persist updated user to storage (fire-and-forget)
       AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
       return { ...prev, user: updatedUser };
     });
@@ -165,8 +249,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUp,
       signOut,
       updateUser,
+      refreshProfile,
     }),
-    [state, signIn, signUp, signOut, updateUser]
+    [state, signIn, signUp, signOut, updateUser, refreshProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

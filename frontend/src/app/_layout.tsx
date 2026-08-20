@@ -14,8 +14,6 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { StepProvider } from '@/context/StepContext';
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-// SplashScreen.preventAutoHideAsync();
-
 function RootNavigator() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const segments = useSegments();
@@ -27,17 +25,34 @@ function RootNavigator() {
     if (isLoading) return;
     if (!navigationState?.key) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
+    const firstSegment = segments[0] as string | undefined;
+    const inAuthGroup = firstSegment === '(auth)';
+    const inOnboardingGroup = firstSegment === '(onboarding)';
 
-    if (!inAuthGroup && !isAuthenticated) {
-      router.replace('/(auth)/sign-in' as any);
+    if (!isAuthenticated) {
+      if (!inAuthGroup) {
+        router.replace('/(auth)/sign-in' as any);
+      }
+    } else {
+      // User is authenticated
+      if (user?.isOnboarded) {
+        // User has already completed onboarding
+        if (inAuthGroup || inOnboardingGroup) {
+          router.replace('/(tabs)' as any);
+        }
+      } else {
+        // User has not completed onboarding
+        if (inAuthGroup || firstSegment === '(tabs)' || !firstSegment) {
+          router.replace('/(onboarding)/gender' as any);
+        }
+      }
     }
-  }, [isAuthenticated, isLoading, segments, navigationState?.key, router, user]);
+  }, [isAuthenticated, isLoading, segments, navigationState?.key, router, user?.isOnboarded]);
 
   if (isLoading || !navigationState?.key) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6C63FF" />
+        <ActivityIndicator size="large" color="#98E527" />
       </View>
     );
   }
@@ -66,6 +81,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0A0A0F',
+    backgroundColor: '#08080C',
   },
 });

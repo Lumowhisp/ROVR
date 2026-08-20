@@ -7,6 +7,7 @@ import stepsRoutes from "./routes/steps.route.js";
 import limitRatingRoutes from "./routes/limitRating.route.js";
 import hydrationRoutes from "./routes/hydration.route.js";
 import roadsRoutes from "./routes/roads.route.js";
+import workoutRoutes from "./routes/workout.route.js";
 
 const app = express();
 app.use(morgan("dev"));
@@ -51,6 +52,7 @@ app.use("/api/onboard", onboardRoutes);
 app.use("/api/onboard", limitRatingRoutes);
 app.use("/api/hydration", hydrationRoutes);
 app.use("/api/roads", roadsRoutes);
+app.use("/api/workouts", workoutRoutes);
 
 app.use("/api/services/profile", (req, res, next) => {
   console.log("Profile middleware hit:", req.method, req.originalUrl);

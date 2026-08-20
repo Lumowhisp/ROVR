@@ -101,8 +101,12 @@ export default function SignInScreen() {
     setLoading(true);
 
     try {
-      await signIn(email.trim(), password);
-      router.replace('/(onboarding)/gender' as any);
+      const loggedUser = await signIn(email.trim(), password);
+      if (loggedUser?.isOnboarded) {
+        router.replace('/(tabs)' as any);
+      } else {
+        router.replace('/(onboarding)/gender' as any);
+      }
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data

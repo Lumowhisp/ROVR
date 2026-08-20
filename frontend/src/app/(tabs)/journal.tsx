@@ -67,6 +67,13 @@ export default function JournalScreen() {
   const loadWorkouts = async () => {
     const list = await workoutStorage.getAllWorkouts();
     setWorkouts(list);
+
+    // Sync in background from MongoDB
+    workoutStorage.syncFromCloud().then((synced) => {
+      if (synced) {
+        setWorkouts(synced);
+      }
+    }).catch(() => {});
   };
 
   useFocusEffect(

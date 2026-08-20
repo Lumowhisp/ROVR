@@ -1,6 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import type { WorkoutSummary } from '@/types/workout';
 
 const RENDER_BACKEND_URL = process.env.EXPO_PUBLIC_API_URL || 'https://rovr.onrender.com';
 
@@ -59,6 +60,11 @@ export const authAPI = {
     });
     return response.data;
   },
+
+  getMe: async () => {
+    const response = await api.get('/api/auth/me');
+    return response.data;
+  },
 };
 
 // Onboarding API calls
@@ -94,6 +100,34 @@ export const onboardAPI = {
 export const profileAPI = {
   getBMI: async () => {
     const response = await api.get('/api/services/profile/getBMI');
+    return response.data;
+  },
+};
+
+// Workout API calls (MongoDB Persistence)
+export const workoutAPI = {
+  saveWorkout: async (workout: WorkoutSummary) => {
+    const response = await api.post('/api/workouts', workout);
+    return response.data;
+  },
+
+  getWorkouts: async (params?: { limit?: number; page?: number }) => {
+    const response = await api.get('/api/workouts', { params });
+    return response.data;
+  },
+
+  getStats: async () => {
+    const response = await api.get('/api/workouts/stats');
+    return response.data;
+  },
+
+  getWorkoutById: async (id: string) => {
+    const response = await api.get(`/api/workouts/${id}`);
+    return response.data;
+  },
+
+  deleteWorkout: async (id: string) => {
+    const response = await api.delete(`/api/workouts/${id}`);
     return response.data;
   },
 };

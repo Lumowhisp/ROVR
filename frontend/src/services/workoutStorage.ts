@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { workoutAPI } from '@/services/api';
 import type { WorkoutSummary } from '@/types/workout';
 
 const WORKOUT_HISTORY_KEY = 'rovr_workout_history';
@@ -15,12 +16,14 @@ export interface CumulativeStats {
 
 export const workoutStorage = {
   /**
-   * Save a newly finished workout session to persistent storage
+   * Save a newly finished workout session to both local AsyncStorage and remote MongoDB
    */
   saveWorkout: async (workout: WorkoutSummary): Promise<void> => {
     try {
       const existing = await workoutStorage.getAllWorkouts();
-      const updated = [workout, ...existing];
+      // Avoid duplicate workout ids in local list
+      const filtered = existing.filter((w) => w.id !== workout.id);
+      const updated = [workout, ...filtered];
       await AsyncStorage.setItem(WORKOUT_HISTORY_KEY, JSON.stringify(updated));
 
       // Calculate steps if not provided: ~1300 steps/km for walk/run
@@ -37,6 +40,11 @@ export const workoutStorage = {
         totalSteps: (stats.totalSteps || 0) + sessionSteps,
       };
       await AsyncStorage.setItem(WORKOUT_STATS_KEY, JSON.stringify(newStats));
+
+      // Cloud MongoDB Sync (Fire & Forget with retry log)
+      workoutAPI.saveWorkout(workout).catch((cloudErr) => {
+        console.log('Workout cloud sync deferred/offline:', cloudErr?.message || cloudErr);
+      });
     } catch (err) {
       console.log('Error saving workout to storage:', err);
     }
@@ -52,6 +60,76 @@ export const workoutStorage = {
     } catch {
       return [];
     }
+  },
+
+  /**
+   * Sync remote workouts from MongoDB into local AsyncStorage.
+   * Useful on multi-device sign-in or app launch.
+   */
+  syncFromCloud: async (): Promise<WorkoutSummary[]> => {
+    try {
+      const res = await workoutAPI.getWorkouts({ limit: 100 });
+      if (res && res.success && Array.isArray(res.data)) {
+        const cloudWorkouts: WorkoutSummary[] = res.data.map((item: any) => ({
+          id: item.workoutId || item._id,
+          activityType: item.activityType || 'running',
+          startTime: item.startedAt || Date.now(),
+          endTime: item.completedAt || Date.now(),
+          durationSeconds: item.durationSeconds || 0,
+          distanceKm: item.distanceKm || 0,
+          caloriesBurned: item.caloriesBurned || 0,
+          avgPace: item.avgPace || "0'00\"",
+          avgSpeed: item.avgSpeed || 0,
+          routeCoordinates: item.routeCoordinates || [],
+          earnedXP: item.earnedXP || 0,
+          steps: item.steps || 0,
+        }));
+
+        const localWorkouts = await workoutStorage.getAllWorkouts();
+
+        // Merge without duplicates (favoring cloud objects)
+        const workoutMap = new Map<string, WorkoutSummary>();
+        localWorkouts.forEach((w) => workoutMap.set(w.id, w));
+        cloudWorkouts.forEach((w) => workoutMap.set(w.id, w));
+
+        const merged = Array.from(workoutMap.values()).sort(
+          (a, b) => b.endTime - a.endTime
+        );
+
+        await AsyncStorage.setItem(WORKOUT_HISTORY_KEY, JSON.stringify(merged));
+
+        // Recompute cumulative stats
+        let totalWorkouts = merged.length;
+        let totalDistanceKm = 0;
+        let totalDurationSeconds = 0;
+        let totalCaloriesBurned = 0;
+        let totalXP = 0;
+        let totalSteps = 0;
+
+        merged.forEach((w) => {
+          totalDistanceKm += w.distanceKm || 0;
+          totalDurationSeconds += w.durationSeconds || 0;
+          totalCaloriesBurned += w.caloriesBurned || 0;
+          totalXP += w.earnedXP || 0;
+          totalSteps += w.steps || (w.activityType !== 'cycling' ? Math.round((w.distanceKm || 0) * 1300) : 0);
+        });
+
+        const newStats: CumulativeStats = {
+          totalWorkouts,
+          totalDistanceKm: Number(totalDistanceKm.toFixed(2)),
+          totalDurationSeconds,
+          totalCaloriesBurned,
+          totalXP,
+          totalSteps,
+        };
+
+        await AsyncStorage.setItem(WORKOUT_STATS_KEY, JSON.stringify(newStats));
+        return merged;
+      }
+    } catch (err) {
+      console.log('Error syncing workouts from cloud:', err);
+    }
+    return workoutStorage.getAllWorkouts();
   },
 
   /**
@@ -83,7 +161,7 @@ export const workoutStorage = {
   },
 
   /**
-   * Clear all workout history (for debugging/reset)
+   * Clear all workout history (for debugging/reset/logout)
    */
   clearHistory: async (): Promise<void> => {
     try {

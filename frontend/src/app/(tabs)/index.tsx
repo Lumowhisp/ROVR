@@ -59,6 +59,15 @@ export default function HomeScreen() {
         }
 
         refreshSteps();
+
+        // Background sync from MongoDB
+        workoutStorage.syncFromCloud().then(async (synced) => {
+          if (synced && synced.length > 0) {
+            setRecentWorkout(synced[0]);
+            const updatedStats = await workoutStorage.getCumulativeStats();
+            setStats(updatedStats);
+          }
+        }).catch(() => {});
       }
       loadRealData();
     }, [refreshSteps])
