@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,11 +8,13 @@ import {
   Modal,
   Platform,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import TomTomMap, { type TomTomMapHandle } from '@/components/map/TomTomMap';
 import type { SafeRouteData } from '@/components/map/mapBridge';
 import { roadsAPI } from '@/services/api';
@@ -34,9 +36,19 @@ import {
   Layers,
   Sparkles,
   X,
+  Timer,
+  Award,
 } from 'lucide-react-native';
 import { ActivityIndicator } from 'react-native';
-import Animated, { ZoomIn, FadeInDown, FadeOutUp } from 'react-native-reanimated';
+import Animated, {
+  ZoomIn,
+  FadeInDown,
+  FadeInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import type { ActivityType, LocationCoordinate, WorkoutSummary } from '@/types/workout';
 import {
   calculateHaversineDistance,
@@ -56,7 +68,6 @@ export default function TrackingScreen() {
   const params = useLocalSearchParams<{
     activityType?: ActivityType;
     targetDistance?: string;
-    useSafeRoute?: string;
   }>();
   const activityType: ActivityType = params.activityType || 'running';
   const targetDistanceKm = parseFloat(params.targetDistance || '0') || 0;
@@ -89,7 +100,21 @@ export default function TrackingScreen() {
   const simulationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastMovementTimestamp = useRef<number>(Date.now());
 
-  // Timer helper functions
+  // Breathing live pulse animation
+  const pulseAnim = useSharedValue(1);
+  useEffect(() => {
+    pulseAnim.value = withRepeat(
+      withTiming(1.25, { duration: 1000 }),
+      -1,
+      true
+    );
+  }, []);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseAnim.value }],
+  }));
+
+  // Timer helpers
   const stopTimer = () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -121,7 +146,7 @@ export default function TrackingScreen() {
     setCurrentSpeedKmH(0);
   };
 
-  // Simulation mode for testing on simulators/without physical movement
+  // Simulation mode for fallback
   const startSimulation = () => {
     if (simulationTimerRef.current) clearInterval(simulationTimerRef.current);
     let lat = currentLocation?.latitude || 28.6139;
@@ -151,7 +176,7 @@ export default function TrackingScreen() {
     }, 2000);
   };
 
-  // Start live GPS watching
+  // Live GPS watching
   const startGPSWatch = async () => {
     if (locationSubscription.current) {
       locationSubscription.current.remove();
@@ -175,11 +200,10 @@ export default function TrackingScreen() {
 
           setCurrentLocation(newCoord);
 
-          // Calculate real-time speed & instant stationary detection
+          // Calculate real-time speed & instant stationary zero drop
           const rawSpeedMps = loc.coords.speed;
           let instantSpeedKmH = 0;
 
-          // Threshold: if speed is below 0.3 m/s (~1 km/h), user is standing still
           if (rawSpeedMps !== null && rawSpeedMps !== undefined && rawSpeedMps > 0.3) {
             instantSpeedKmH = Math.min(60, rawSpeedMps * 3.6);
             lastMovementTimestamp.current = Date.now();
@@ -192,12 +216,10 @@ export default function TrackingScreen() {
               const lastCoord = prevCoords[prevCoords.length - 1];
               const addedDist = calculateHaversineDistance(lastCoord, newCoord);
 
-              // Only accumulate if movement exceeds GPS jitter threshold (> 1.5 meters)
               if (addedDist > 0.0015) {
                 setTotalDistanceKm((prevDist) => prevDist + addedDist);
                 lastMovementTimestamp.current = Date.now();
 
-                // If hardware GPS speed was null, fallback to delta speed calculation
                 if (instantSpeedKmH === 0 && (rawSpeedMps === null || rawSpeedMps === undefined)) {
                   const newTime = newCoord.timestamp || Date.now();
                   const lastTime = lastCoord.timestamp || (newTime - 1000);
@@ -221,7 +243,7 @@ export default function TrackingScreen() {
     }
   };
 
-  // Initialize and get initial location
+  // Init initial location
   useEffect(() => {
     async function initLocation() {
       try {
@@ -240,9 +262,7 @@ export default function TrackingScreen() {
             timestamp: loc.timestamp,
           };
           setCurrentLocation(initialCoord);
-          // Initial centering is handled by TomTomMap via currentLocation prop
         } else {
-          // Default fallback location (e.g. New Delhi / Central Park)
           const fallbackCoord: LocationCoordinate = {
             latitude: 28.6139,
             longitude: 77.209,
@@ -262,7 +282,7 @@ export default function TrackingScreen() {
     };
   }, []);
 
-  // Preload Road Segments GeoJSON for Safety Heatmap Layer
+  // Preload Road Segments for Safety Heatmap
   useEffect(() => {
     async function loadRoadSegments() {
       try {
@@ -282,18 +302,17 @@ export default function TrackingScreen() {
     loadRoadSegments();
   }, [activityType]);
 
-  // On-demand handler to generate or clear AI Safe Loop Route
+  // On-demand AI Safe Loop Route Toggle
   const handleToggleSafeRoute = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // If recommended route is already active, dismiss it
     if (recommendedRoute) {
       setRecommendedRoute(null);
       return;
     }
 
     if (!currentLocation) {
-      Alert.alert('GPS Required', 'Acquiring your current GPS location to calculate the nearest safe loop route.');
+      Alert.alert('GPS Required', 'Acquiring current GPS location to calculate nearest safe loop.');
       return;
     }
 
@@ -323,7 +342,7 @@ export default function TrackingScreen() {
     } catch (err: any) {
       Alert.alert(
         'Routing Info',
-        err?.response?.data?.message || 'Could not generate a loop route nearby. You can continue with freeform tracking.'
+        err?.response?.data?.message || 'Could not generate a loop route nearby. Continuing with freeform tracking.'
       );
     } finally {
       setIsRoutingLoading(false);
@@ -356,11 +375,11 @@ export default function TrackingScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert(
       'Finish Workout?',
-      'Are you ready to complete and record this session?',
+      'Record and store this session telemetry?',
       [
-        { text: 'Resume', style: 'cancel' },
+        { text: 'Keep Going', style: 'cancel' },
         {
-          text: 'Finish Workout',
+          text: 'Finish & Save',
           style: 'destructive',
           onPress: () => {
             handleFinish();
@@ -424,7 +443,9 @@ export default function TrackingScreen() {
 
   return (
     <View style={styles.container}>
-      {/* TomTom Map View */}
+      <StatusBar barStyle="light-content" translucent />
+
+      {/* TomTom Map Engine */}
       <TomTomMap
         ref={mapRef}
         apiKey={process.env.EXPO_PUBLIC_TOMTOM_API_KEY || 'CzZ9FdkTfX8xctGNP452EG8rOeh2757C'}
@@ -445,320 +466,333 @@ export default function TrackingScreen() {
         height={SCREEN_HEIGHT * 0.65}
       />
 
-      {/* Top Floating Bar */}
-      <View style={styles.topBar}>
-        <TouchableOpacity
-          style={styles.circleBtn}
-          onPress={() => {
-            if (trackingStatus === 'active') {
-              handlePause();
-            }
-            router.back();
-          }}
-        >
-          <ArrowLeft size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-
-        <View style={styles.activityBadge}>
-          <ActivityIcon size={16} color="#98E527" />
-          <Text style={styles.activityBadgeText}>
-            {activityType.toUpperCase()}
-          </Text>
-        </View>
-
-        <View style={styles.topRightActions}>
-          {/* AI Safe Route Suggestion Toggle (On-Demand) */}
+      {/* Floating Frosted Glass Top Bar */}
+      <View style={styles.topBarWrapper}>
+        <BlurView intensity={Platform.OS === 'ios' ? 45 : 85} tint="dark" style={styles.topBarBlur}>
           <TouchableOpacity
-            style={[styles.circleBtn, recommendedRoute && styles.circleBtnRouteActive]}
-            onPress={handleToggleSafeRoute}
-            disabled={isRoutingLoading}
-          >
-            {isRoutingLoading ? (
-              <ActivityIndicator size="small" color="#00D4FF" />
-            ) : (
-              <Sparkles size={18} color={recommendedRoute ? '#00D4FF' : '#FFFFFF'} />
-            )}
-          </TouchableOpacity>
-
-          {/* Safety Heatmap Toggle */}
-          <TouchableOpacity
-            style={[styles.circleBtn, showSafetyHeatmap && styles.circleBtnHeatmapActive]}
+            style={styles.circleBtn}
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShowSafetyHeatmap((prev) => !prev);
+              if (trackingStatus === 'active') {
+                handlePause();
+              }
+              router.back();
             }}
           >
-            <Layers size={18} color={showSafetyHeatmap ? '#00D4FF' : '#FFFFFF'} />
+            <ArrowLeft size={18} color="#FFFFFF" />
           </TouchableOpacity>
 
-          {/* Recenter Button */}
-          <TouchableOpacity
-            style={[styles.circleBtn, followUser && styles.circleBtnActive]}
-            onPress={handleRecenter}
-          >
-            <Navigation size={18} color={followUser ? '#000000' : '#FFFFFF'} />
-          </TouchableOpacity>
-        </View>
+          {/* Activity Live Badge */}
+          <View style={styles.activityBadge}>
+            <ActivityIcon size={15} color="#98E527" />
+            <Text style={styles.activityBadgeText}>
+              {activityType.toUpperCase()}
+            </Text>
+            {trackingStatus === 'active' && (
+              <Animated.View style={[styles.livePulseBeacon, pulseStyle]} />
+            )}
+          </View>
+
+          {/* Action Controls Group */}
+          <View style={styles.topRightActions}>
+            {/* AI Safe Route Toggle */}
+            <TouchableOpacity
+              style={[styles.circleBtn, recommendedRoute && styles.circleBtnRouteActive]}
+              onPress={handleToggleSafeRoute}
+              disabled={isRoutingLoading}
+            >
+              {isRoutingLoading ? (
+                <ActivityIndicator size="small" color="#00D4FF" />
+              ) : (
+                <Sparkles size={16} color={recommendedRoute ? '#00D4FF' : '#FFFFFF'} />
+              )}
+            </TouchableOpacity>
+
+            {/* Safety Heatmap Toggle */}
+            <TouchableOpacity
+              style={[styles.circleBtn, showSafetyHeatmap && styles.circleBtnHeatmapActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowSafetyHeatmap((prev) => !prev);
+              }}
+            >
+              <Layers size={16} color={showSafetyHeatmap ? '#00D4FF' : '#FFFFFF'} />
+            </TouchableOpacity>
+
+            {/* Recenter Button */}
+            <TouchableOpacity
+              style={[styles.circleBtn, followUser && styles.circleBtnActive]}
+              onPress={handleRecenter}
+            >
+              <Navigation size={16} color={followUser ? '#000000' : '#FFFFFF'} />
+            </TouchableOpacity>
+          </View>
+        </BlurView>
       </View>
 
       {/* Safe Route HUD Banner */}
       {recommendedRoute && (
-        <Animated.View entering={FadeInDown.duration(400)} style={styles.safeRouteHud}>
-          <View style={styles.safeRouteHudIconWrap}>
-            <ShieldCheck size={16} color="#00D4FF" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.safeRouteHudTitle}>
-              {Math.round(recommendedRoute.safetyScore * 100)}% SAFETY SCORE • {recommendedRoute.distanceKm} KM LOOP
-            </Text>
-            <Text style={styles.safeRouteHudSubtitle}>
-              Recommended Safe Corridor (Lit roads & low traffic)
-            </Text>
-          </View>
-          <View style={styles.safeRouteLiveDot} />
+        <Animated.View entering={FadeInDown.duration(400)} style={styles.safeRouteHudWrapper}>
+          <BlurView intensity={50} tint="dark" style={styles.safeRouteHudBlur}>
+            <View style={styles.safeRouteHudIconWrap}>
+              <ShieldCheck size={16} color="#00D4FF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.safeRouteHudTitle}>
+                {Math.round(recommendedRoute.safetyScore * 100)}% SAFETY SCORE • {recommendedRoute.distanceKm} KM LOOP
+              </Text>
+              <Text style={styles.safeRouteHudSubtitle}>
+                Safe Corridor (Lit streets & low traffic)
+              </Text>
+            </View>
+            <View style={styles.safeRouteLiveDot} />
+          </BlurView>
         </Animated.View>
       )}
 
       {/* Road Segment Inspector Floating Pill */}
       {selectedRoadInfo && (
-        <Animated.View entering={FadeInDown.duration(300)} style={styles.roadInspectorCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.roadInspectorName} numberOfLines={1}>
-              {selectedRoadInfo.roadName}
-            </Text>
-            <View style={styles.roadInspectorMetrics}>
-              <Text style={styles.roadInspectorScore}>
-                🛡️ {Math.round(selectedRoadInfo.safetyScore * 100)}/100 Safe
+        <Animated.View entering={FadeInDown.duration(300)} style={styles.roadInspectorWrapper}>
+          <BlurView intensity={50} tint="dark" style={styles.roadInspectorBlur}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.roadInspectorName} numberOfLines={1}>
+                {selectedRoadInfo.roadName}
               </Text>
-              {selectedRoadInfo.trafficLevel !== null && (
-                <Text style={styles.roadInspectorTraffic}>
-                  🚦 Traffic: {Math.round(selectedRoadInfo.trafficLevel * 100)}%
+              <View style={styles.roadInspectorMetrics}>
+                <Text style={styles.roadInspectorScore}>
+                  🛡️ {Math.round(selectedRoadInfo.safetyScore * 100)}/100 Safe
                 </Text>
-              )}
+                {selectedRoadInfo.trafficLevel !== null && (
+                  <Text style={styles.roadInspectorTraffic}>
+                    🚦 {Math.round(selectedRoadInfo.trafficLevel * 100)}% Traffic
+                  </Text>
+                )}
+              </View>
             </View>
-          </View>
-          <TouchableOpacity
-            style={styles.roadInspectorClose}
-            onPress={() => setSelectedRoadInfo(null)}
-          >
-            <X size={16} color="#94A3B8" />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.roadInspectorClose}
+              onPress={() => setSelectedRoadInfo(null)}
+            >
+              <X size={16} color="#94A3B8" />
+            </TouchableOpacity>
+          </BlurView>
         </Animated.View>
       )}
 
-      {/* Bottom Floating Telemetry Dashboard */}
-      <View style={styles.bottomSheet}>
-        {/* Primary Metrics Grid */}
-        <View style={styles.metricsGrid}>
-          {/* Distance */}
-          <View style={styles.primaryMetric}>
-            <Text style={styles.distanceValue}>
-              {totalDistanceKm.toFixed(2)}
-            </Text>
-            <Text style={styles.metricUnit}>KILOMETERS</Text>
-          </View>
-
-          {/* Time */}
-          <View style={styles.primaryMetric}>
-            <Text style={styles.timeValue}>{formatDuration(elapsedSeconds)}</Text>
-            <Text style={styles.metricUnit}>DURATION</Text>
-          </View>
-        </View>
-
-        {/* Distance Target Progress Bar (if set) */}
-        {targetDistanceKm > 0 && (
-          <View style={styles.targetProgressContainer}>
-            <View style={styles.targetProgressHeader}>
-              <Text style={styles.targetProgressLabel}>Target: {targetDistanceKm.toFixed(1)} KM</Text>
-              <Text style={styles.targetProgressPercent}>
-                {Math.min(100, Math.round((totalDistanceKm / targetDistanceKm) * 100))}%
-              </Text>
+      {/* Glassmorphic Bottom Telemetry Sheet */}
+      <View style={styles.bottomSheetWrapper}>
+        <BlurView intensity={Platform.OS === 'ios' ? 55 : 95} tint="dark" style={styles.bottomSheetBlur}>
+          {/* Primary Big Metrics Grid */}
+          <View style={styles.metricsGrid}>
+            <View style={styles.primaryMetric}>
+              <Text style={styles.distanceValue}>{totalDistanceKm.toFixed(2)}</Text>
+              <Text style={styles.metricUnit}>KILOMETERS</Text>
             </View>
-            <View style={styles.progressBarTrack}>
-              <View
-                style={[
-                  styles.progressBarFill,
-                  { width: `${Math.min(100, (totalDistanceKm / targetDistanceKm) * 100)}%` },
-                ]}
-              />
-            </View>
-          </View>
-        )}
 
-        {/* Secondary Metrics Bar */}
-        <View style={styles.secondaryRow}>
-          <View style={styles.secondaryItem}>
-            <View style={styles.secIconWrap}>
-              <MapPin size={14} color="#98E527" />
-            </View>
-            <View>
-              <Text style={styles.secVal}>{pace}</Text>
-              <Text style={styles.secLabel}>Avg Pace</Text>
+            <View style={styles.primaryMetricDivider} />
+
+            <View style={styles.primaryMetric}>
+              <Text style={styles.timeValue}>{formatDuration(elapsedSeconds)}</Text>
+              <Text style={styles.metricUnit}>DURATION</Text>
             </View>
           </View>
 
-          <View style={styles.verticalDivider} />
-
-          <View style={styles.secondaryItem}>
-            <View style={styles.secIconWrap}>
-              <Flame size={14} color="#F97316" />
-            </View>
-            <View>
-              <Text style={styles.secVal}>{calories}</Text>
-              <Text style={styles.secLabel}>Calories</Text>
-            </View>
-          </View>
-
-          <View style={styles.verticalDivider} />
-
-          <View style={styles.secondaryItem}>
-            <View style={styles.secIconWrap}>
-              <Zap size={14} color="#00D4FF" />
-            </View>
-            <View>
-              <Text style={styles.secVal}>{currentSpeedKmH.toFixed(1)} km/h</Text>
-              <Text style={styles.secLabel}>Speed</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Action Controls */}
-        <View style={styles.controlsRow}>
-          {trackingStatus === 'idle' && (
-            <TouchableOpacity
-              activeOpacity={0.88}
-              style={styles.startLargeBtn}
-              onPress={handleStart}
-            >
-              <LinearGradient
-                colors={['#98E527', '#4ADE80']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.startGradient}
-              >
-                <Play size={22} color="#000000" fill="#000000" />
-                <Text style={styles.startBtnText}>START WORKOUT</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-
-          {trackingStatus === 'active' && (
-            <View style={styles.activeControlsRow}>
-              <TouchableOpacity
-                style={styles.pauseBtn}
-                onPress={handlePause}
-                activeOpacity={0.85}
-              >
-                <Pause size={24} color="#000000" fill="#000000" />
-                <Text style={styles.pauseBtnText}>PAUSE</Text>
-              </TouchableOpacity>
+          {/* Target Progress Bar (if active) */}
+          {targetDistanceKm > 0 && (
+            <View style={styles.targetProgressContainer}>
+              <View style={styles.targetProgressHeader}>
+                <Text style={styles.targetProgressLabel}>Target: {targetDistanceKm.toFixed(1)} KM</Text>
+                <Text style={styles.targetProgressPercent}>
+                  {Math.min(100, Math.round((totalDistanceKm / targetDistanceKm) * 100))}%
+                </Text>
+              </View>
+              <View style={styles.progressBarTrack}>
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    { width: `${Math.min(100, (totalDistanceKm / targetDistanceKm) * 100)}%` },
+                  ]}
+                />
+              </View>
             </View>
           )}
 
-          {trackingStatus === 'paused' && (
-            <View style={styles.pausedControlsRow}>
+          {/* Secondary Stats Glass Strip (Google Fit Style) */}
+          <View style={styles.secondaryRow}>
+            <View style={styles.secondaryItem}>
+              <View style={styles.secIconWrap}>
+                <Timer size={13} color="#98E527" />
+              </View>
+              <View>
+                <Text style={styles.secVal}>{pace}</Text>
+                <Text style={styles.secLabel}>Pace</Text>
+              </View>
+            </View>
+
+            <View style={styles.secVerticalDivider} />
+
+            <View style={styles.secondaryItem}>
+              <View style={styles.secIconWrap}>
+                <Flame size={13} color="#F97316" />
+              </View>
+              <View>
+                <Text style={styles.secVal}>{calories}</Text>
+                <Text style={styles.secLabel}>Calories</Text>
+              </View>
+            </View>
+
+            <View style={styles.secVerticalDivider} />
+
+            <View style={styles.secondaryItem}>
+              <View style={styles.secIconWrap}>
+                <Zap size={13} color="#00D4FF" />
+              </View>
+              <View>
+                <Text style={styles.secVal}>{currentSpeedKmH.toFixed(1)}</Text>
+                <Text style={styles.secLabel}>km/h</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Action Control Buttons */}
+          <View style={styles.controlsRow}>
+            {trackingStatus === 'idle' && (
               <TouchableOpacity
-                style={styles.resumeBtn}
-                onPress={handleResume}
-                activeOpacity={0.85}
+                activeOpacity={0.88}
+                style={styles.startLargeBtn}
+                onPress={handleStart}
               >
                 <LinearGradient
-                  colors={['#98E527', '#4ADE80']}
-                  style={styles.resumeGradient}
+                  colors={['#98E527', '#22C55E']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.startGradient}
                 >
                   <Play size={20} color="#000000" fill="#000000" />
-                  <Text style={styles.resumeBtnText}>RESUME</Text>
+                  <Text style={styles.startBtnText}>START WORKOUT</Text>
                 </LinearGradient>
               </TouchableOpacity>
+            )}
 
-              <TouchableOpacity
-                style={styles.finishBtn}
-                onPress={handleStopPrompt}
-                activeOpacity={0.85}
-              >
-                <Square size={18} color="#FFFFFF" fill="#FFFFFF" />
-                <Text style={styles.finishBtnText}>FINISH</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+            {trackingStatus === 'active' && (
+              <View style={styles.activeControlsRow}>
+                <TouchableOpacity
+                  style={styles.pauseBtn}
+                  onPress={handlePause}
+                  activeOpacity={0.85}
+                >
+                  <Pause size={22} color="#000000" fill="#000000" />
+                  <Text style={styles.pauseBtnText}>PAUSE</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {trackingStatus === 'paused' && (
+              <View style={styles.pausedControlsRow}>
+                <TouchableOpacity
+                  style={styles.resumeBtn}
+                  onPress={handleResume}
+                  activeOpacity={0.85}
+                >
+                  <LinearGradient
+                    colors={['#98E527', '#22C55E']}
+                    style={styles.resumeGradient}
+                  >
+                    <Play size={18} color="#000000" fill="#000000" />
+                    <Text style={styles.resumeBtnText}>RESUME</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.finishBtn}
+                  onPress={handleStopPrompt}
+                  activeOpacity={0.85}
+                >
+                  <Square size={16} color="#FFFFFF" fill="#FFFFFF" />
+                  <Text style={styles.finishBtnText}>FINISH</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </BlurView>
       </View>
 
-      {/* Workout Completion Summary Modal */}
+      {/* Completion Summary Modal */}
       <Modal
         visible={showSummaryModal}
-        animationType="slide"
+        animationType="fade"
         transparent={true}
       >
         <View style={styles.modalOverlay}>
-          <Animated.View entering={ZoomIn.duration(400)} style={styles.summaryModalCard}>
-            <View style={styles.celebrationIconWrap}>
-              <LinearGradient
-                colors={['#98E527', '#4ADE80']}
-                style={styles.celebrationGradient}
-              >
-                <CheckCircle2 size={44} color="#000000" strokeWidth={2.5} />
-              </LinearGradient>
-            </View>
-
-            <Text style={styles.modalTitle}>Workout Complete!</Text>
-            <Text style={styles.modalSubtitle}>
-              Great job! Your activity telemetry and rewards have been compiled.
-            </Text>
-
-            {/* XP Award Pill */}
-            <View style={styles.xpAwardPill}>
-              <Zap size={18} color="#98E527" />
-              <Text style={styles.xpAwardText}>+{earnedXP} ROVR XP EARNED</Text>
-            </View>
-
-            {/* Stats Summary Matrix */}
-            <View style={styles.summaryMatrix}>
-              <View style={styles.matrixCol}>
-                <Text style={styles.matrixVal}>{totalDistanceKm.toFixed(2)} km</Text>
-                <Text style={styles.matrixLabel}>Total Distance</Text>
-              </View>
-
-              <View style={styles.matrixDivider} />
-
-              <View style={styles.matrixCol}>
-                <Text style={styles.matrixVal}>{formatDuration(elapsedSeconds)}</Text>
-                <Text style={styles.matrixLabel}>Duration</Text>
-              </View>
-
-              <View style={styles.matrixDivider} />
-
-              <View style={styles.matrixCol}>
-                <Text style={styles.matrixVal}>{calories} kcal</Text>
-                <Text style={styles.matrixLabel}>Active Burn</Text>
-              </View>
-            </View>
-
-            {/* Save & Discard Buttons */}
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.saveBtn}
-                onPress={handleSaveWorkout}
-              >
+          <BlurView intensity={Platform.OS === 'ios' ? 60 : 90} tint="dark" style={styles.modalBackdropBlur}>
+            <Animated.View entering={ZoomIn.duration(400)} style={styles.summaryModalCard}>
+              <View style={styles.celebrationIconWrap}>
                 <LinearGradient
-                  colors={['#98E527', '#4ADE80']}
-                  style={styles.saveBtnGradient}
+                  colors={['#98E527', '#22C55E']}
+                  style={styles.celebrationGradient}
                 >
-                  <Text style={styles.saveBtnText}>SAVE TO PROFILE</Text>
+                  <CheckCircle2 size={40} color="#000000" strokeWidth={2.5} />
                 </LinearGradient>
-              </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity
-                style={styles.discardBtn}
-                onPress={() => {
-                  setShowSummaryModal(false);
-                  router.replace('/(tracker)/workout' as any);
-                }}
-              >
-                <Text style={styles.discardBtnText}>Discard</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
+              <Text style={styles.modalTitle}>Workout Complete!</Text>
+              <Text style={styles.modalSubtitle}>
+                Session telemetry and rewards recorded to your ROVR profile.
+              </Text>
+
+              {/* XP Pill */}
+              <View style={styles.xpAwardPill}>
+                <Zap size={16} color="#98E527" />
+                <Text style={styles.xpAwardText}>+{earnedXP} ROVR XP EARNED</Text>
+              </View>
+
+              {/* Matrix */}
+              <View style={styles.summaryMatrix}>
+                <View style={styles.matrixCol}>
+                  <Text style={styles.matrixVal}>{totalDistanceKm.toFixed(2)} km</Text>
+                  <Text style={styles.matrixLabel}>Distance</Text>
+                </View>
+
+                <View style={styles.matrixDivider} />
+
+                <View style={styles.matrixCol}>
+                  <Text style={styles.matrixVal}>{formatDuration(elapsedSeconds)}</Text>
+                  <Text style={styles.matrixLabel}>Duration</Text>
+                </View>
+
+                <View style={styles.matrixDivider} />
+
+                <View style={styles.matrixCol}>
+                  <Text style={styles.matrixVal}>{calories} kcal</Text>
+                  <Text style={styles.matrixLabel}>Active Burn</Text>
+                </View>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.saveBtn}
+                  onPress={handleSaveWorkout}
+                >
+                  <LinearGradient
+                    colors={['#98E527', '#22C55E']}
+                    style={styles.saveBtnGradient}
+                  >
+                    <Text style={styles.saveBtnText}>SAVE TO PROFILE</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.discardBtn}
+                  onPress={() => {
+                    setShowSummaryModal(false);
+                    router.replace('/(tracker)/workout' as any);
+                  }}
+                >
+                  <Text style={styles.discardBtnText}>Discard</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </BlurView>
         </View>
       </Modal>
     </View>
@@ -768,31 +802,39 @@ export default function TrackingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0F',
+    backgroundColor: '#08080C',
   },
-  // Map styles are now handled inside TomTomMap component
-  topBar: {
+  topBarWrapper: {
     position: 'absolute',
-    top: 50,
-    left: 20,
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  circleBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(10, 10, 15, 0.85)',
+    top: Platform.OS === 'ios' ? 52 : 44,
+    left: 16,
+    right: 16,
+    borderRadius: 24,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  topBarBlur: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  circleBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   circleBtnActive: {
     backgroundColor: '#98E527',
@@ -805,31 +847,57 @@ const styles = StyleSheet.create({
   topRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   circleBtnHeatmapActive: {
     backgroundColor: 'rgba(0, 212, 255, 0.2)',
     borderColor: '#00D4FF',
   },
-  safeRouteHud: {
-    position: 'absolute',
-    top: 108,
-    left: 20,
-    right: 20,
-    backgroundColor: 'rgba(18, 18, 26, 0.92)',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+  activityBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(0, 212, 255, 0.4)',
+    borderColor: 'rgba(152, 229, 39, 0.3)',
+  },
+  activityBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.8,
+  },
+  livePulseBeacon: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#98E527',
+  },
+
+  // Safe Route HUD
+  safeRouteHudWrapper: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 116 : 108,
+    left: 16,
+    right: 16,
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.35)',
     shadowColor: '#00D4FF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowRadius: 8,
+  },
+  safeRouteHudBlur: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   safeRouteHudIconWrap: {
     width: 32,
@@ -840,7 +908,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   safeRouteHudTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: '#00D4FF',
     letterSpacing: 0.5,
@@ -856,20 +924,24 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#00D4FF',
   },
-  roadInspectorCard: {
+
+  // Road Inspector
+  roadInspectorWrapper: {
     position: 'absolute',
-    top: 170,
-    left: 20,
-    right: 20,
-    backgroundColor: 'rgba(22, 22, 34, 0.95)',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    top: Platform.OS === 'ios' ? 176 : 168,
+    left: 16,
+    right: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  roadInspectorBlur: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    borderWidth: 1,
-    borderColor: '#2D2D44',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   roadInspectorName: {
     fontSize: 13,
@@ -885,7 +957,7 @@ const styles = StyleSheet.create({
   roadInspectorScore: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#10B981',
+    color: '#22C55E',
   },
   roadInspectorTraffic: {
     fontSize: 11,
@@ -894,87 +966,79 @@ const styles = StyleSheet.create({
   roadInspectorClose: {
     padding: 4,
   },
-  activityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(10, 10, 15, 0.85)',
-    borderWidth: 1,
-    borderColor: 'rgba(152, 229, 39, 0.4)',
-  },
-  activityBadgeText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 1,
-  },
-  bottomSheet: {
+
+  // Bottom Telemetry Sheet
+  bottomSheetWrapper: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#0E0E17',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    overflow: 'hidden',
     borderTopWidth: 1,
-    borderTopColor: '#1E1E2E',
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 18,
+    elevation: 16,
+  },
+  bottomSheetBlur: {
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 28,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 12,
+    paddingBottom: Platform.OS === 'ios' ? 38 : 26,
   },
   metricsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 16,
+    alignItems: 'center',
+    marginBottom: 14,
   },
   primaryMetric: {
     alignItems: 'center',
   },
   distanceValue: {
-    fontSize: 44,
+    fontSize: 48,
     fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: -1,
+    letterSpacing: -1.5,
   },
   timeValue: {
-    fontSize: 44,
+    fontSize: 48,
     fontWeight: '900',
     color: '#98E527',
-    letterSpacing: -1,
+    letterSpacing: -1.5,
   },
   metricUnit: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '800',
     color: '#64748B',
     letterSpacing: 1.5,
-    marginTop: 2,
+    marginTop: 1,
+  },
+  primaryMetricDivider: {
+    width: 1,
+    height: 48,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   targetProgressContainer: {
-    backgroundColor: '#161624',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 12,
     padding: 10,
-    marginBottom: 14,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#242438',
+    borderColor: 'rgba(255, 255, 255, 0.07)',
   },
   targetProgressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 5,
   },
   targetProgressLabel: {
     fontSize: 11,
     color: '#94A3B8',
     fontWeight: '700',
-    textTransform: 'uppercase',
   },
   targetProgressPercent: {
     fontSize: 11,
@@ -983,7 +1047,7 @@ const styles = StyleSheet.create({
   },
   progressBarTrack: {
     height: 4,
-    backgroundColor: '#2A2A3E',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 2,
     overflow: 'hidden',
   },
@@ -996,13 +1060,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: '#161624',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 18,
     paddingVertical: 12,
     paddingHorizontal: 10,
-    marginBottom: 20,
+    marginBottom: 18,
     borderWidth: 1,
-    borderColor: '#242438',
+    borderColor: 'rgba(255, 255, 255, 0.07)',
   },
   secondaryItem: {
     flexDirection: 'row',
@@ -1013,7 +1077,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1023,32 +1087,40 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   secLabel: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 9,
+    fontWeight: '700',
     color: '#64748B',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  verticalDivider: {
+  secVerticalDivider: {
     width: 1,
-    height: 24,
-    backgroundColor: '#2A2A3E',
+    height: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
   },
+
+  // Action Buttons
   controlsRow: {
     width: '100%',
   },
   startLargeBtn: {
     borderRadius: 18,
     overflow: 'hidden',
+    shadowColor: '#98E527',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
   startGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 8,
     paddingVertical: 18,
   },
   startBtnText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '900',
     color: '#000000',
     letterSpacing: 0.5,
@@ -1064,6 +1136,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
   },
   pauseBtnText: {
     fontSize: 16,
@@ -1079,6 +1155,10 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 18,
     overflow: 'hidden',
+    shadowColor: '#98E527',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
   },
   resumeGradient: {
     flexDirection: 'row',
@@ -1088,7 +1168,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
   },
   resumeBtnText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
     color: '#000000',
     letterSpacing: 0.5,
@@ -1102,69 +1182,87 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 18,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
   },
   finishBtnText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: 0.5,
   },
 
-  // Modal Styles
+  // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBackdropBlur: {
+    flex: 1,
+    width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
   },
   summaryModalCard: {
     width: '100%',
-    backgroundColor: '#12121A',
+    backgroundColor: 'rgba(18, 18, 28, 0.95)',
     borderRadius: 28,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#1E1E2E',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
   },
   celebrationIconWrap: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   celebrationGradient: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#98E527',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
   modalTitle: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '900',
     color: '#FFFFFF',
     marginBottom: 6,
   },
   modalSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#94A3B8',
     textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 20,
-    paddingHorizontal: 12,
+    lineHeight: 17,
+    marginBottom: 18,
+    paddingHorizontal: 8,
   },
   xpAwardPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     backgroundColor: 'rgba(152, 229, 39, 0.12)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: 'rgba(152, 229, 39, 0.3)',
-    marginBottom: 20,
+    marginBottom: 18,
   },
   xpAwardText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
     color: '#98E527',
     letterSpacing: 0.5,
@@ -1173,39 +1271,43 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-around',
-    backgroundColor: '#181824',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 18,
-    paddingVertical: 16,
-    marginBottom: 24,
+    paddingVertical: 14,
+    marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#242436',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   matrixCol: {
     alignItems: 'center',
   },
   matrixVal: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#FFFFFF',
   },
   matrixLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748B',
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: 3,
   },
   matrixDivider: {
     width: 1,
-    height: 28,
-    backgroundColor: '#2A2A3E',
+    height: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   modalActions: {
     width: '100%',
-    gap: 12,
+    gap: 10,
   },
   saveBtn: {
     borderRadius: 16,
     overflow: 'hidden',
+    shadowColor: '#98E527',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
   },
   saveBtnGradient: {
     paddingVertical: 16,
@@ -1213,7 +1315,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveBtnText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '900',
     color: '#000000',
     letterSpacing: 0.5,
@@ -1223,7 +1325,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   discardBtnText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#64748B',
   },
