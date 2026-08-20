@@ -6,117 +6,47 @@ import {
   View,
   ScrollView,
   StatusBar,
-  Dimensions,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import {
   Footprints,
   Bike,
-  Flame,
-  Zap,
-  MapPin,
-  ChevronRight,
   Compass,
-  ArrowLeft,
-  Navigation,
   Mountain,
-  Trophy,
+  Navigation,
   Target,
-  ShieldCheck,
-  Activity,
-  Heart,
-  Timer,
+  Zap,
 } from 'lucide-react-native';
-import Animated, {
-  FadeInDown,
-  FadeInUp,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withRepeat,
-  withTiming,
-  runOnUI,
-} from 'react-native-reanimated';
 import type { ActivityType } from '@/types/workout';
 import { workoutStorage, type CumulativeStats } from '@/services/workoutStorage';
+import BottomNav from '@/components/BottomNav';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-interface ActivityOption {
+interface ActivityMode {
   id: ActivityType;
-  title: string;
-  subtitle: string;
+  label: string;
+  desc: string;
+  xp: string;
+  kcal: string;
   icon: typeof Footprints;
-  gradient: [string, string];
-  accentColor: string;
-  glowColor: string;
-  avgPace: string;
-  calPerHour: number;
-  xpMultiplier: string;
 }
 
-const ACTIVITIES: ActivityOption[] = [
-  {
-    id: 'running',
-    title: 'Outdoor Run',
-    subtitle: 'GPS road tracking, cadence & active calorie burn',
-    icon: Footprints,
-    gradient: ['#98E527', '#22C55E'],
-    accentColor: '#98E527',
-    glowColor: 'rgba(152, 229, 39, 0.35)',
-    avgPace: "5'30\" /km",
-    calPerHour: 680,
-    xpMultiplier: '+20% XP',
-  },
-  {
-    id: 'cycling',
-    title: 'Road Cycling',
-    subtitle: 'High-speed velocity telemetry & elevation tracking',
-    icon: Bike,
-    gradient: ['#00D4FF', '#0284C7'],
-    accentColor: '#00D4FF',
-    glowColor: 'rgba(0, 212, 255, 0.35)',
-    avgPace: '22.4 km/h',
-    calPerHour: 540,
-    xpMultiplier: '1.0x XP',
-  },
-  {
-    id: 'walking',
-    title: 'Daily Walk',
-    subtitle: 'Low-impact cardio, step accumulation & streak bonus',
-    icon: Compass,
-    gradient: ['#F59E0B', '#D97706'],
-    accentColor: '#F59E0B',
-    glowColor: 'rgba(245, 158, 11, 0.35)',
-    avgPace: "10'45\" /km",
-    calPerHour: 290,
-    xpMultiplier: '1.0x XP',
-  },
-  {
-    id: 'hiking',
-    title: 'Trail Hike',
-    subtitle: 'Terrain exploration, rugged ascent & landmark points',
-    icon: Mountain,
-    gradient: ['#C084FC', '#9333EA'],
-    accentColor: '#C084FC',
-    glowColor: 'rgba(192, 132, 252, 0.35)',
-    avgPace: "14'15\" /km",
-    calPerHour: 450,
-    xpMultiplier: '+30% XP',
-  },
+const MODES: ActivityMode[] = [
+  { id: 'running', label: 'RUN', desc: 'Track GPS route, pace & distance', xp: '1.2×', kcal: '~680 kcal/hr', icon: Footprints },
+  { id: 'cycling', label: 'CYCLING', desc: 'Speed, cadence & elevation', xp: '1.0×', kcal: '~520 kcal/hr', icon: Bike },
+  { id: 'walking', label: 'WALK', desc: 'Steps, distance & pace', xp: '0.7×', kcal: '~280 kcal/hr', icon: Compass },
+  { id: 'hiking', label: 'TRAIL HIKE', desc: 'Elevation, terrain & route', xp: '1.5×', kcal: '~420 kcal/hr', icon: Mountain },
 ];
 
 const TARGET_PRESETS = [
-  { label: 'Open Target', value: 0, desc: 'Freeform GPS' },
-  { label: '1.0 KM', value: 1.0, desc: 'Quick Sprint' },
-  { label: '3.0 KM', value: 3.0, desc: 'Cardio Loop' },
-  { label: '5.0 KM', value: 5.0, desc: 'Standard 5K' },
-  { label: '10.0 KM', value: 10.0, desc: 'Endurance' },
+  { label: 'Open', value: 0 },
+  { label: '1.0 KM', value: 1.0 },
+  { label: '3.0 KM', value: 3.0 },
+  { label: '5.0 KM', value: 5.0 },
+  { label: '10.0 KM', value: 10.0 },
 ];
 
 export default function WorkoutScreen() {
@@ -132,24 +62,6 @@ export default function WorkoutScreen() {
     totalXP: 0,
   });
 
-  const buttonScale = useSharedValue(1);
-  const pulseAnim = useSharedValue(1);
-
-  // Breathing pulse for active indicators
-  useEffect(() => {
-    pulseAnim.value = withRepeat(
-      withTiming(1.2, { duration: 1200 }),
-      -1,
-      true
-    );
-  }, []);
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulseAnim.value }],
-    opacity: withTiming(gpsStatus === 'ready' ? 1 : 0.6),
-  }));
-
-  // Load cumulative stats
   useFocusEffect(
     useCallback(() => {
       async function loadStats() {
@@ -180,17 +92,17 @@ export default function WorkoutScreen() {
   }, []);
 
   const handleSelectActivity = (id: ActivityType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
     setSelectedActivity(id);
   };
 
   const handleSelectTarget = (val: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
     setSelectedTarget(val);
   };
 
   const handleStartWorkout = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); } catch {}
     router.push({
       pathname: '/(tracker)/tracking' as any,
       params: {
@@ -200,341 +112,231 @@ export default function WorkoutScreen() {
     });
   };
 
-  const selectedItem = ACTIVITIES.find((a) => a.id === selectedActivity) || ACTIVITIES[0];
-
-  const buttonAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
-  const handlePressIn = () => {
-    runOnUI(() => {
-      'worklet';
-      buttonScale.value = withSpring(0.96, { damping: 15 });
-    })();
-  };
-
-  const handlePressOut = () => {
-    runOnUI(() => {
-      'worklet';
-      buttonScale.value = withSpring(1, { damping: 15 });
-    })();
-  };
+  const selectedItem = MODES.find((m) => m.id === selectedActivity) || MODES[0];
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent />
-
-      {/* Atmospheric Ambient Glows */}
-      <View style={styles.ambientGlowTop} />
-      <View style={[styles.ambientGlowAccent, { backgroundColor: selectedItem.glowColor }]} />
-
-      {/* Frosted Glass Header */}
-      <View style={styles.headerWrapper}>
-        <BlurView intensity={Platform.OS === 'ios' ? 40 : 80} tint="dark" style={styles.headerBlur}>
-          <TouchableOpacity
-            style={styles.glassCircleBtn}
-            onPress={() => router.back()}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <ArrowLeft size={18} color="#F1F5F9" />
-          </TouchableOpacity>
-
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Workout Hub</Text>
-            <View style={styles.gpsIndicator}>
-              <Animated.View
-                style={[
-                  styles.gpsDot,
-                  gpsStatus === 'ready'
-                    ? styles.gpsDotActive
-                    : gpsStatus === 'checking'
-                    ? styles.gpsDotChecking
-                    : styles.gpsDotDenied,
-                  pulseStyle,
-                ]}
-              />
-              <Text style={styles.gpsText}>
-                {gpsStatus === 'ready'
-                  ? 'GPS Active'
-                  : gpsStatus === 'checking'
-                  ? 'Locking Satellites...'
-                  : 'GPS Offline'}
-              </Text>
-            </View>
+      <SafeAreaView style={styles.safeArea}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>Workout</Text>
+            <Text style={styles.subtitle}>Choose your movement.</Text>
           </View>
 
+          {/* GPS indicator */}
           <TouchableOpacity
-            style={styles.gpsTestButton}
-            onPress={() => router.push('/(tracker)/gps_test' as any)}
+            style={styles.gpsBadge}
+            onPress={() => router.push('/(tracker)/gps_test')}
           >
-            <Navigation size={16} color="#98E527" />
+            <View
+              style={[
+                styles.gpsDot,
+                gpsStatus === 'ready'
+                  ? styles.gpsDotActive
+                  : gpsStatus === 'checking'
+                  ? styles.gpsDotChecking
+                  : styles.gpsDotDenied,
+              ]}
+            />
+            <Text style={styles.gpsText}>
+              {gpsStatus === 'ready'
+                ? 'GPS Active'
+                : gpsStatus === 'checking'
+                ? 'Locking…'
+                : 'GPS Offline'}
+            </Text>
+            <Navigation size={12} color="#9BEA20" style={{ marginLeft: 2 }} />
           </TouchableOpacity>
-        </BlurView>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Google Fit Inspired Concentric Ring & Progress Card */}
-        <Animated.View entering={FadeInDown.duration(400)} style={styles.ringCardContainer}>
-          <LinearGradient
-            colors={['rgba(26, 26, 38, 0.85)', 'rgba(14, 14, 22, 0.85)']}
-            style={styles.ringCardGradient}
-          >
-            {/* Visual Ring Aura */}
-            <View style={styles.ringVisualSection}>
-              <View style={styles.ringOuter}>
-                <View style={styles.ringInner}>
-                  <Zap size={22} color="#98E527" />
-                  <Text style={styles.ringValText}>{stats.totalXP}</Text>
-                  <Text style={styles.ringSubText}>TOTAL XP</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Quick Metrics Columns */}
-            <View style={styles.ringMetricsRow}>
-              <View style={styles.ringMetricCol}>
-                <View style={styles.metricIconWrap}>
-                  <MapPin size={13} color="#00D4FF" />
-                </View>
-                <Text style={styles.ringMetricVal}>{stats.totalDistanceKm.toFixed(1)}</Text>
-                <Text style={styles.ringMetricLabel}>KM LOGGED</Text>
-              </View>
-
-              <View style={styles.ringDivider} />
-
-              <View style={styles.ringMetricCol}>
-                <View style={styles.metricIconWrap}>
-                  <Flame size={13} color="#F97316" />
-                </View>
-                <Text style={styles.ringMetricVal}>{stats.totalCaloriesBurned}</Text>
-                <Text style={styles.ringMetricLabel}>ACTIVE KCAL</Text>
-              </View>
-
-              <View style={styles.ringDivider} />
-
-              <View style={styles.ringMetricCol}>
-                <View style={styles.metricIconWrap}>
-                  <Activity size={13} color="#98E527" />
-                </View>
-                <Text style={styles.ringMetricVal}>{stats.totalWorkouts}</Text>
-                <Text style={styles.ringMetricLabel}>SESSIONS</Text>
-              </View>
-            </View>
-          </LinearGradient>
-        </Animated.View>
-
-        {/* Section Title */}
-        <Animated.View entering={FadeInDown.delay(100).duration(450)} style={styles.titleSection}>
-          <Text style={styles.mainHeading}>Select Discipline</Text>
-          <Text style={styles.subHeading}>
-            Live GPS precision tracking with safety scored routing
-          </Text>
-        </Animated.View>
-
-        {/* Glassmorphic Activity Cards List */}
-        <View style={styles.activityList}>
-          {ACTIVITIES.map((activity, index) => {
-            const isSelected = selectedActivity === activity.id;
-            const Icon = activity.icon;
-
-            return (
-              <Animated.View
-                key={activity.id}
-                entering={FadeInDown.delay(index * 60 + 150).duration(400)}
-              >
-                <TouchableOpacity
-                  activeOpacity={0.88}
-                  style={[
-                    styles.activityCard,
-                    isSelected && [
-                      styles.activityCardSelected,
-                      { borderColor: activity.accentColor },
-                    ],
-                  ]}
-                  onPress={() => handleSelectActivity(activity.id)}
-                >
-                  {/* Active Neon Accent Left Strip */}
-                  {isSelected && (
-                    <LinearGradient
-                      colors={activity.gradient}
-                      style={styles.selectedLeftStripe}
-                    />
-                  )}
-
-                  {/* Icon Circle with Frosted Glow */}
-                  <View style={styles.iconCircleWrapper}>
-                    <LinearGradient
-                      colors={activity.gradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.iconCircle}
-                    >
-                      <Icon size={22} color="#000000" strokeWidth={2.5} />
-                    </LinearGradient>
-                  </View>
-
-                  <View style={styles.activityInfo}>
-                    <View style={styles.cardHeaderRow}>
-                      <Text
-                        style={[
-                          styles.activityTitle,
-                          isSelected && { color: activity.accentColor },
-                        ]}
-                      >
-                        {activity.title}
-                      </Text>
-                      <View
-                        style={[
-                          styles.xpBadge,
-                          isSelected && {
-                            backgroundColor: `${activity.accentColor}20`,
-                            borderColor: `${activity.accentColor}50`,
-                          },
-                        ]}
-                      >
-                        <Zap size={10} color={activity.accentColor} />
-                        <Text
-                          style={[
-                            styles.xpBadgeText,
-                            { color: activity.accentColor },
-                          ]}
-                        >
-                          {activity.xpMultiplier}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <Text style={styles.activitySubtitle} numberOfLines={2}>
-                      {activity.subtitle}
-                    </Text>
-
-                    {/* Metadata Tags */}
-                    <View style={styles.metaRow}>
-                      <View style={styles.metaTag}>
-                        <Timer size={11} color="#64748B" />
-                        <Text style={styles.metaText}>{activity.avgPace}</Text>
-                      </View>
-                      <View style={styles.metaTag}>
-                        <Flame size={11} color="#F97316" />
-                        <Text style={styles.metaText}>~{activity.calPerHour} kcal/h</Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Radio Indicator */}
-                  <View style={styles.radioContainer}>
-                    <View
-                      style={[
-                        styles.radioOuter,
-                        isSelected && { borderColor: activity.accentColor },
-                      ]}
-                    >
-                      {isSelected && (
-                        <View
-                          style={[
-                            styles.radioInner,
-                            { backgroundColor: activity.accentColor },
-                          ]}
-                        />
-                      )}
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              </Animated.View>
-            );
-          })}
         </View>
 
-        {/* Distance Target Preset Chips (Google Fit Styled) */}
-        <Animated.View entering={FadeInUp.delay(350).duration(450)} style={styles.targetSection}>
-          <View style={styles.targetHeader}>
-            <View style={styles.targetIconWrap}>
-              <Target size={14} color="#98E527" />
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Lifetime Quick Stats Strip */}
+          {stats.totalWorkouts > 0 && (
+            <View style={styles.statsStrip}>
+              <View style={styles.statCol}>
+                <Text style={styles.statVal}>{stats.totalDistanceKm.toFixed(1)} km</Text>
+                <Text style={styles.statLbl}>TOTAL LOGGED</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statCol}>
+                <Text style={styles.statVal}>{stats.totalWorkouts}</Text>
+                <Text style={styles.statLbl}>SESSIONS</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statCol}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                  <Zap size={11} color="#9BEA20" />
+                  <Text style={[styles.statVal, { color: '#9BEA20' }]}>{stats.totalXP}</Text>
+                </View>
+                <Text style={styles.statLbl}>XP EARNED</Text>
+              </View>
             </View>
-            <View>
-              <Text style={styles.targetTitle}>Session Target</Text>
-              <Text style={styles.targetSubtitle}>Set an optional distance milestone</Text>
-            </View>
-          </View>
+          )}
 
-          <View style={styles.targetPillRow}>
-            {TARGET_PRESETS.map((preset) => {
-              const isTargetActive = selectedTarget === preset.value;
+          {/* Workout Modes List */}
+          <View style={styles.modesList}>
+            {MODES.map((m) => {
+              const isSel = selectedActivity === m.id;
+              const Icon = m.icon;
               return (
                 <TouchableOpacity
-                  key={preset.label}
-                  activeOpacity={0.8}
+                  key={m.id}
+                  activeOpacity={0.88}
+                  onPress={() => handleSelectActivity(m.id)}
                   style={[
-                    styles.targetPill,
-                    isTargetActive && styles.targetPillActive,
+                    styles.modeCard,
+                    isSel ? styles.modeCardSelected : styles.modeCardUnselected,
                   ]}
-                  onPress={() => handleSelectTarget(preset.value)}
                 >
-                  <Text
-                    style={[
-                      styles.targetPillText,
-                      isTargetActive && styles.targetPillTextActive,
-                    ]}
-                  >
-                    {preset.label}
-                  </Text>
+                  <View style={styles.modeCardInner}>
+                    {/* Icon Box */}
+                    <View
+                      style={[
+                        styles.iconBox,
+                        {
+                          backgroundColor: isSel
+                            ? '#111214'
+                            : 'rgba(255, 255, 255, 0.08)',
+                        },
+                      ]}
+                    >
+                      <Icon
+                        size={22}
+                        color={isSel ? '#9BEA20' : 'rgba(255, 255, 255, 0.45)'}
+                      />
+                    </View>
+
+                    {/* Mode Information */}
+                    <View style={styles.modeInfo}>
+                      <Text
+                        style={[
+                          styles.modeLabel,
+                          { color: isSel ? '#111214' : '#F7F8F9' },
+                        ]}
+                      >
+                        {m.label}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.modeDesc,
+                          { color: isSel ? '#687078' : 'rgba(255, 255, 255, 0.4)' },
+                        ]}
+                      >
+                        {m.desc}
+                      </Text>
+
+                      {/* Pills */}
+                      <View style={styles.pillsRow}>
+                        <View
+                          style={[
+                            styles.pill,
+                            {
+                              backgroundColor: isSel
+                                ? 'rgba(155, 234, 32, 0.18)'
+                                : 'rgba(255, 255, 255, 0.06)',
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.pillTextBold,
+                              { color: isSel ? '#3F6212' : 'rgba(255, 255, 255, 0.5)' },
+                            ]}
+                          >
+                            {m.xp} XP
+                          </Text>
+                        </View>
+
+                        <View
+                          style={[
+                            styles.pill,
+                            {
+                              backgroundColor: isSel
+                                ? 'rgba(0, 0, 0, 0.06)'
+                                : 'rgba(255, 255, 255, 0.04)',
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.pillText,
+                              { color: isSel ? '#687078' : 'rgba(255, 255, 255, 0.4)' },
+                            ]}
+                          >
+                            {m.kcal}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Active Radio Badge */}
+                    {isSel && (
+                      <View style={styles.radioOuter}>
+                        <View style={styles.radioInner} />
+                      </View>
+                    )}
+                  </View>
                 </TouchableOpacity>
               );
             })}
           </View>
-        </Animated.View>
 
-        {/* Safety Corridor AI Feature Teaser */}
-        <Animated.View entering={FadeInUp.delay(400).duration(450)} style={styles.aiCorridorBanner}>
-          <LinearGradient
-            colors={['rgba(0, 212, 255, 0.12)', 'rgba(15, 23, 42, 0.6)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.aiCorridorGradient}
+          {/* Session Target Presets */}
+          <View style={styles.targetSection}>
+            <View style={styles.targetHeader}>
+              <Target size={14} color="#9BEA20" />
+              <Text style={styles.targetTitle}>Session Target (Optional)</Text>
+            </View>
+
+            <View style={styles.targetRow}>
+              {TARGET_PRESETS.map((preset) => {
+                const isTargetActive = selectedTarget === preset.value;
+                return (
+                  <TouchableOpacity
+                    key={preset.label}
+                    activeOpacity={0.8}
+                    onPress={() => handleSelectTarget(preset.value)}
+                    style={[
+                      styles.targetPill,
+                      isTargetActive && styles.targetPillActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.targetPillText,
+                        isTargetActive && styles.targetPillTextActive,
+                      ]}
+                    >
+                      {preset.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* Floating Start Workout CTA */}
+        <View style={styles.ctaWrapper}>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={handleStartWorkout}
+            style={styles.startBtn}
           >
-            <View style={styles.aiIconWrap}>
-              <ShieldCheck size={20} color="#00D4FF" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.aiCorridorTitle}>On-Demand AI Safe Routes</Text>
-              <Text style={styles.aiCorridorDesc}>
-                Tap ✨ anytime during your workout to generate a well-lit, low-traffic safe loop.
-              </Text>
-            </View>
-          </LinearGradient>
-        </Animated.View>
-      </ScrollView>
+            <Text style={styles.startBtnText}>
+              Start {selectedItem.label} →
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Frosted Floating Bottom CTA */}
-      <View style={styles.footerWrapper}>
-        <BlurView intensity={Platform.OS === 'ios' ? 45 : 85} tint="dark" style={styles.footerBlur}>
-          <Animated.View style={buttonAnimStyle}>
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
-              onPress={handleStartWorkout}
-              style={styles.startButtonWrap}
-            >
-              <LinearGradient
-                colors={selectedItem.gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.startButton}
-              >
-                <Text style={styles.startButtonText}>
-                  START {selectedItem.title.toUpperCase()}
-                  {selectedTarget > 0 ? ` • ${selectedTarget} KM` : ''}
-                </Text>
-                <ChevronRight size={20} color="#000000" strokeWidth={3} />
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
-        </BlurView>
-      </View>
+        <BottomNav active="workout" />
+      </SafeAreaView>
     </View>
   );
 }
@@ -542,67 +344,41 @@ export default function WorkoutScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#08080C',
+    backgroundColor: '#25272A',
   },
-  ambientGlowTop: {
-    position: 'absolute',
-    top: -80,
-    left: '20%',
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: 'rgba(152, 229, 39, 0.08)',
+  safeArea: {
+    flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 20 : 0,
   },
-  ambientGlowAccent: {
-    position: 'absolute',
-    bottom: 120,
-    right: -60,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    opacity: 0.5,
-  },
-  headerWrapper: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-  },
-  headerBlur: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 56 : 48,
+    paddingTop: 14,
     paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
-  glassCircleBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+  title: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#F7F8F9',
+    letterSpacing: -0.5,
   },
-  headerTitleContainer: {
-    alignItems: 'center',
+  subtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.4)',
+    marginTop: 1,
   },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
-  gpsIndicator: {
+  gpsBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
   },
   gpsDot: {
     width: 7,
@@ -610,11 +386,7 @@ const styles = StyleSheet.create({
     borderRadius: 3.5,
   },
   gpsDotActive: {
-    backgroundColor: '#98E527',
-    shadowColor: '#98E527',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 6,
+    backgroundColor: '#9BEA20',
   },
   gpsDotChecking: {
     backgroundColor: '#F59E0B',
@@ -624,380 +396,189 @@ const styles = StyleSheet.create({
   },
   gpsText: {
     fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#F7F8F9',
   },
-  gpsTestButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(152, 229, 39, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(152, 229, 39, 0.3)',
+  scrollView: {
+    flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 120 : 112,
-    paddingBottom: 120,
+    paddingBottom: 180,
   },
-
-  // Concentric Ring & Progress Card
-  ringCardContainer: {
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    marginBottom: 24,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-  },
-  ringCardGradient: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  ringVisualSection: {
-    marginBottom: 16,
-  },
-  ringOuter: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: '#00D4FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#00D4FF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 10,
-  },
-  ringInner: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 4,
-    borderColor: '#98E527',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(10, 10, 15, 0.9)',
-    shadowColor: '#98E527',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-  },
-  ringValText: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    marginTop: 1,
-  },
-  ringSubText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#98E527',
-    letterSpacing: 1,
-  },
-  ringMetricsRow: {
-    flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  ringMetricCol: {
-    alignItems: 'center',
-  },
-  metricIconWrap: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  ringMetricVal: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  ringMetricLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#64748B',
-    marginTop: 2,
-    letterSpacing: 0.5,
-  },
-  ringDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-  },
-
-  // Title Section
-  titleSection: {
-    marginBottom: 16,
-  },
-  mainHeading: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: -0.4,
-  },
-  subHeading: {
-    fontSize: 13,
-    color: '#94A3B8',
-    marginTop: 4,
-  },
-
-  // Activity Cards
-  activityList: {
+  modesList: {
     gap: 12,
     marginBottom: 20,
   },
-  activityCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(20, 20, 30, 0.75)',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-    overflow: 'hidden',
-  },
-  activityCardSelected: {
-    backgroundColor: 'rgba(28, 28, 42, 0.95)',
+  modeCard: {
+    borderRadius: 26,
+    padding: 18,
     borderWidth: 1.5,
+  },
+  modeCardSelected: {
+    backgroundColor: '#F7F8F9',
+    borderColor: 'rgba(155, 234, 32, 0.4)',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
+    elevation: 4,
   },
-  selectedLeftStripe: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
+  modeCardUnselected: {
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  iconCircleWrapper: {
-    marginRight: 14,
+  modeCardInner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
   },
-  iconCircle: {
+  iconBox: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
   },
-  activityInfo: {
+  modeInfo: {
     flex: 1,
   },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 3,
-  },
-  activityTitle: {
+  modeLabel: {
     fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
-  xpBadge: {
+  modeDesc: {
+    fontSize: 12,
+    marginBottom: 10,
+    lineHeight: 16,
+  },
+  pillsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 8,
   },
-  xpBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
+  pill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
   },
-  activitySubtitle: {
+  pillTextBold: {
     fontSize: 11,
-    color: '#94A3B8',
-    lineHeight: 15,
-    marginBottom: 6,
+    fontWeight: '800',
   },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  metaTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metaText: {
+  pillText: {
     fontSize: 11,
-    color: '#CBD5E1',
     fontWeight: '600',
   },
-  radioContainer: {
-    marginLeft: 8,
-  },
   radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#334155',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#9BEA20',
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#111214',
   },
-
-  // Target Section
   targetSection: {
-    backgroundColor: 'rgba(20, 20, 30, 0.75)',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
     marginBottom: 16,
   },
   targetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
-  },
-  targetIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(152, 229, 39, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 10,
   },
   targetTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    textTransform: 'uppercase',
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.5)',
     letterSpacing: 0.5,
   },
-  targetSubtitle: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  targetPillRow: {
+  targetRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
   targetPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   targetPillActive: {
-    backgroundColor: 'rgba(152, 229, 39, 0.15)',
-    borderColor: '#98E527',
+    backgroundColor: 'rgba(155, 234, 32, 0.2)',
+    borderColor: '#9BEA20',
   },
   targetPillText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: 'rgba(255, 255, 255, 0.45)',
   },
   targetPillTextActive: {
-    color: '#98E527',
+    color: '#9BEA20',
   },
-
-  // AI Safe Corridor Banner
-  aiCorridorBanner: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 212, 255, 0.25)',
-  },
-  aiCorridorGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-  },
-  aiIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0, 212, 255, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  aiCorridorTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#00D4FF',
-    letterSpacing: 0.2,
-  },
-  aiCorridorDesc: {
-    fontSize: 11,
-    color: '#94A3B8',
-    lineHeight: 15,
-    marginTop: 2,
-  },
-
-  // Floating Footer CTA
-  footerWrapper: {
+  ctaWrapper: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 96,
+    left: 20,
+    right: 20,
     zIndex: 10,
   },
-  footerBlur: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  startButtonWrap: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    shadowColor: '#98E527',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  startButton: {
-    flexDirection: 'row',
+  startBtn: {
+    backgroundColor: '#9BEA20',
+    borderRadius: 22,
+    paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 18,
+    shadowColor: '#9BEA20',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 6,
   },
-  startButtonText: {
+  startBtnText: {
+    color: '#111214',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  statsStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    marginBottom: 16,
+  },
+  statCol: {
+    alignItems: 'center',
+  },
+  statVal: {
     fontSize: 15,
     fontWeight: '900',
-    color: '#000000',
-    letterSpacing: 0.5,
+    color: '#F7F8F9',
+    marginBottom: 2,
+  },
+  statLbl: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.4)',
+    letterSpacing: 0.8,
+  },
+  statDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
 });

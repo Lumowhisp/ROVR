@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
@@ -25,7 +26,6 @@ import {
   Navigation,
   Flame,
   Zap,
-  MapPin,
   CheckCircle2,
   ArrowLeft,
   Footprints,
@@ -37,13 +37,10 @@ import {
   Sparkles,
   X,
   Timer,
-  Award,
 } from 'lucide-react-native';
-import { ActivityIndicator } from 'react-native';
 import Animated, {
   ZoomIn,
   FadeInDown,
-  FadeInUp,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -98,17 +95,18 @@ export default function TrackingScreen() {
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const simulationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastMovementTimestamp = useRef<number>(Date.now());
+  const lastMovementTimestamp = useRef<number>(0);
 
   // Breathing live pulse animation
   const pulseAnim = useSharedValue(1);
   useEffect(() => {
+    lastMovementTimestamp.current = Date.now();
     pulseAnim.value = withRepeat(
       withTiming(1.25, { duration: 1000 }),
       -1,
       true
     );
-  }, []);
+  }, [pulseAnim]);
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseAnim.value }],
@@ -415,7 +413,17 @@ export default function TrackingScreen() {
     };
     await workoutStorage.saveWorkout(summary);
     setShowSummaryModal(false);
-    router.replace('/(tracker)/workout' as any);
+    router.replace({
+      pathname: '/(tracker)/workout-summary' as any,
+      params: {
+        distance: totalDistanceKm.toFixed(2),
+        duration: formatDuration(elapsedSeconds),
+        calories: calories.toString(),
+        pace,
+        speed: avgSpeed,
+        xp: `+${earnedXP}`,
+      },
+    });
   };
 
   const handleRecenter = () => {

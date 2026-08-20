@@ -1,15 +1,13 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   Pressable,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   ActivityIndicator,
-  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -17,22 +15,53 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withSequence,
-  FadeIn,
   FadeInDown,
   runOnUI,
 } from 'react-native-reanimated';
-import { Check, Eye, EyeOff } from 'lucide-react-native';
+import { Eye, EyeOff, Check } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '@/context/AuthContext';
 import { signInWithSocialProvider, SocialProvider } from '@/lib/firebase';
+import { GlassCard, GlassInput } from '@/components/ui';
 
-// ROVR Signature Color Palette
-const LIME_GREEN = '#98E527';
-const BG_DARK = '#08080C';
-const CARD_BG = '#121218';
-const INPUT_BG = '#16161E';
-const BORDER_COLOR = '#232330';
-const TEXT_MUTED = '#8E8E9F';
+function GoogleIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24">
+      <Path
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+        fill="#4285F4"
+      />
+      <Path
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+        fill="#34A853"
+      />
+      <Path
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+        fill="#FBBC05"
+      />
+      <Path
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+        fill="#EA4335"
+      />
+    </Svg>
+  );
+}
+
+function AppleIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="#FFFFFF">
+      <Path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+    </Svg>
+  );
+}
+
+function FacebookIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="#1877F2">
+      <Path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+    </Svg>
+  );
+}
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -44,11 +73,8 @@ export default function SignInScreen() {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  // Animations
   const shakeX = useSharedValue(0);
-
   const shakeStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: shakeX.value }],
   }));
@@ -65,6 +91,30 @@ export default function SignInScreen() {
         withTiming(0, { duration: 50 })
       );
     })();
+  };
+
+  const handleSignIn = async () => {
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter your email and password');
+      triggerShake();
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+
+    try {
+      await signIn(email.trim(), password);
+      router.replace('/(onboarding)/gender' as any);
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || 'Invalid credentials. Please try again.';
+      setError(message);
+      triggerShake();
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSocialSignIn = async (provider: SocialProvider) => {
@@ -90,32 +140,12 @@ export default function SignInScreen() {
     }
   };
 
-  const handleSignIn = async () => {
-    if (!email.trim() || !password.trim()) {
-      setError('Please fill in all fields');
-      triggerShake();
-      return;
-    }
-
-    setError('');
-    setLoading(true);
-
-    try {
-      await signIn(email.trim(), password);
-      router.replace('/(onboarding)/gender' as any);
-    } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message || 'Invalid email or password. Please try again.';
-      setError(message);
-      triggerShake();
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <View style={styles.container}>
+      {/* Subtle background ambient orbs */}
+      <View style={styles.ambientTopLeft} />
+      <View style={styles.ambientBottomRight} />
+
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -125,193 +155,143 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Top Logo / Shield Badge */}
-          <Animated.View entering={FadeInDown.duration(600)} style={styles.header}>
-            <View style={styles.logoBadgeOuter}>
-              <View style={styles.logoBadgeInner}>
-                <Image
-                  source={require('@/assets/logo/logo.png')}
-                  style={styles.logoImage}
-                  resizeMode="contain"
-                />
+          {/* Logo Header */}
+          <Animated.View entering={FadeInDown.duration(600)} style={styles.logoSection}>
+            <View style={styles.logoBadgeWrap}>
+              <View style={styles.logoAura} />
+              <View style={styles.logoBadge}>
+                <Text style={styles.logoRV}>RV</Text>
               </View>
             </View>
-
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Log in to your account to continue.</Text>
+            <Text style={styles.brandTitle}>ROVR</Text>
           </Animated.View>
 
-          {/* Form */}
-          <Animated.View style={[styles.formContainer, shakeStyle]}>
-            {/* Error Banner */}
-            {error !== '' && (
-              <Animated.View entering={FadeIn.duration(300)} style={styles.errorBanner}>
-                <Text style={styles.errorText}>{error}</Text>
-              </Animated.View>
-            )}
+          {/* Frosted Auth Card */}
+          <Animated.View style={[styles.cardWrapper, shakeStyle]}>
+            <GlassCard dark style={styles.authCard}>
+              <Text style={styles.cardHeading}>Welcome Back</Text>
+              <Text style={styles.cardSubtitle}>Your next move starts here.</Text>
 
-            {/* Email Field */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email</Text>
-              <View
-                style={[
-                  styles.inputWrap,
-                  focusedField === 'email' && styles.inputWrapFocused,
-                ]}
-              >
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter your email"
-                  placeholderTextColor="#5A5A6E"
-                  value={email}
-                  onChangeText={setEmail}
-                  onFocus={() => setFocusedField('email')}
-                  onBlur={() => setFocusedField(null)}
+              {error !== '' && (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+
+              {/* Email Input */}
+              <View style={styles.inputContainer}>
+                <GlassInput
+                  placeholder="Email address"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  value={email}
+                  onChangeText={setEmail}
                   editable={!loading}
                 />
               </View>
-            </View>
 
-            {/* Password Field */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Password</Text>
-              <View
-                style={[
-                  styles.inputWrap,
-                  focusedField === 'password' && styles.inputWrapFocused,
-                ]}
-              >
-                <TextInput
-                  style={[styles.input, { paddingRight: 45 }]}
-                  placeholder="Enter your password"
-                  placeholderTextColor="#5A5A6E"
+              {/* Password Input */}
+              <View style={styles.inputContainer}>
+                <GlassInput
+                  placeholder="Password"
+                  secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={setPassword}
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
-                  secureTextEntry={!showPassword}
                   editable={!loading}
+                  rightAccessory={
+                    <Pressable
+                      onPress={() => setShowPassword(!showPassword)}
+                      hitSlop={12}
+                    >
+                      {showPassword ? (
+                        <EyeOff size={18} color="rgba(255, 255, 255, 0.4)" />
+                      ) : (
+                        <Eye size={18} color="rgba(255, 255, 255, 0.4)" />
+                      )}
+                    </Pressable>
+                  }
                 />
+              </View>
+
+              {/* Remember Me & Forgot Password */}
+              <View style={styles.optionsRow}>
                 <Pressable
-                  onPress={() => setShowPassword(!showPassword)}
-                  style={styles.eyeBtn}
-                  hitSlop={10}
+                  style={styles.rememberRow}
+                  onPress={() => setRememberMe(!rememberMe)}
                 >
-                  {showPassword ? (
-                    <EyeOff size={19} color="#7E7E94" />
-                  ) : (
-                    <Eye size={19} color="#7E7E94" />
-                  )}
+                  <View
+                    style={[
+                      styles.checkbox,
+                      rememberMe && styles.checkboxChecked,
+                    ]}
+                  >
+                    {rememberMe && <Check size={11} color="#111214" strokeWidth={3.5} />}
+                  </View>
+                  <Text style={styles.rememberLabel}>Remember me</Text>
+                </Pressable>
+
+                <Pressable onPress={() => {}}>
+                  <Text style={styles.forgotLabel}>Forgot Password?</Text>
                 </Pressable>
               </View>
-            </View>
 
-            {/* Remember Me & Forgot Password */}
-            <View style={styles.optionsRow}>
+              {/* Sign In Primary CTA */}
               <Pressable
-                style={styles.rememberWrap}
-                onPress={() => setRememberMe(!rememberMe)}
+                onPress={handleSignIn}
+                disabled={loading}
+                style={({ pressed }) => [
+                  styles.ctaButton,
+                  pressed && styles.ctaButtonPressed,
+                ]}
               >
-                <View
-                  style={[
-                    styles.checkbox,
-                    rememberMe && styles.checkboxActive,
-                  ]}
+                {loading ? (
+                  <ActivityIndicator color="#F7F8F9" />
+                ) : (
+                  <Text style={styles.ctaButtonText}>Sign In</Text>
+                )}
+              </Pressable>
+
+              {/* Divider */}
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>Or continue with</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              {/* Social Login Buttons */}
+              <View style={styles.socialRow}>
+                <Pressable
+                  style={styles.socialBtn}
+                  onPress={() => handleSocialSignIn('google')}
+                  disabled={loading}
                 >
-                  {rememberMe && <Check size={12} color="#000000" strokeWidth={3.5} />}
-                </View>
-                <Text style={styles.rememberText}>Remember me</Text>
-              </Pressable>
+                  <GoogleIcon />
+                </Pressable>
+                <Pressable
+                  style={styles.socialBtn}
+                  onPress={() => handleSocialSignIn('apple')}
+                  disabled={loading}
+                >
+                  <AppleIcon />
+                </Pressable>
+                <Pressable
+                  style={styles.socialBtn}
+                  onPress={() => handleSocialSignIn('facebook')}
+                  disabled={loading}
+                >
+                  <FacebookIcon />
+                </Pressable>
+              </View>
 
-              <Pressable onPress={() => {}}>
-                <Text style={styles.forgotText}>Forgot Password?</Text>
-              </Pressable>
-            </View>
-
-            {/* Primary Sign In Button */}
-            <Pressable
-              onPress={handleSignIn}
-              disabled={loading}
-              style={({ pressed }) => [
-                styles.signInBtn,
-                { transform: [{ scale: pressed ? 0.97 : 1 }] },
-              ]}
-            >
-              {loading ? (
-                <ActivityIndicator color="#000000" />
-              ) : (
-                <Text style={styles.signInBtnText}>Sign In</Text>
-              )}
-            </Pressable>
-
-            {/* "Or" Divider */}
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>Or</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Social Icons Row */}
-            <View style={styles.socialRow}>
-              {/* Google */}
-              <Pressable
-                style={styles.socialBtn}
-                onPress={() => handleSocialSignIn('google')}
-                disabled={loading}
-              >
-                <Svg width={20} height={20} viewBox="0 0 24 24">
-                  <Path
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    fill="#4285F4"
-                  />
-                  <Path
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    fill="#34A853"
-                  />
-                  <Path
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                    fill="#FBBC05"
-                  />
-                  <Path
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                    fill="#EA4335"
-                  />
-                </Svg>
-              </Pressable>
-
-              {/* Apple */}
-              <Pressable
-                style={styles.socialBtn}
-                onPress={() => handleSocialSignIn('apple')}
-                disabled={loading}
-              >
-                <Svg width={20} height={20} viewBox="0 0 24 24" fill="#FFFFFF">
-                  <Path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.36c.63-.78 1.06-1.85.94-2.93-.93.04-2.03.62-2.68 1.38-.58.66-1.08 1.74-.94 2.8 1.03.08 2.07-.49 2.68-1.25z" />
-                </Svg>
-              </Pressable>
-
-              {/* Facebook */}
-              <Pressable
-                style={styles.socialBtn}
-                onPress={() => handleSocialSignIn('facebook')}
-                disabled={loading}
-              >
-                <Svg width={20} height={20} viewBox="0 0 24 24" fill="#1877F2">
-                  <Path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                </Svg>
-              </Pressable>
-            </View>
-
-            {/* Bottom Link */}
-            <View style={styles.bottomSwitchRow}>
-              <Text style={styles.switchPrompt}>Don&apos;t have an account? </Text>
-              <Pressable onPress={() => router.push('/(auth)/sign-up')}>
-                <Text style={styles.switchLink}>Sign Up</Text>
-              </Pressable>
-            </View>
+              {/* Switch to Sign Up */}
+              <View style={styles.switchRow}>
+                <Text style={styles.switchText}>Don&apos;t have an account? </Text>
+                <Pressable onPress={() => router.push('/(auth)/sign-up')}>
+                  <Text style={styles.switchLink}>Sign Up</Text>
+                </Pressable>
+              </View>
+            </GlassCard>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -322,207 +302,213 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BG_DARK,
+    backgroundColor: '#111214',
   },
   flex: {
     flex: 1,
   },
+  ambientTopLeft: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(155, 234, 32, 0.05)',
+  },
+  ambientBottomRight: {
+    position: 'absolute',
+    bottom: 80,
+    right: 20,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(100, 120, 180, 0.06)',
+  },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 28,
-    paddingVertical: 50,
-  },
-  header: {
     alignItems: 'center',
-    marginBottom: 32,
+    paddingHorizontal: 20,
+    paddingVertical: 40,
   },
-  logoBadgeOuter: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(152, 229, 39, 0.1)',
+  logoSection: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  logoBadgeWrap: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  logoAura: {
+    position: 'absolute',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(155, 234, 32, 0.18)',
+  },
+  logoBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(155, 234, 32, 0.12)',
     borderWidth: 1.5,
-    borderColor: 'rgba(152, 229, 39, 0.25)',
+    borderColor: 'rgba(155, 234, 32, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
   },
-  logoBadgeInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
+  logoRV: {
+    color: '#9BEA20',
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
-  logoImage: {
-    width: 44,
-    height: 44,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
+  brandTitle: {
+    fontSize: 34,
+    fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: -0.5,
-    marginBottom: 6,
   },
-  subtitle: {
-    fontSize: 14,
-    color: TEXT_MUTED,
-  },
-  formContainer: {
+  cardWrapper: {
     width: '100%',
-    maxWidth: 380,
-    alignSelf: 'center',
+    maxWidth: 354,
   },
-  errorBanner: {
+  authCard: {
+    padding: 24,
+    borderRadius: 28,
+  },
+  cardHeading: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.4)',
+    marginBottom: 20,
+  },
+  errorBox: {
     backgroundColor: 'rgba(239, 68, 68, 0.12)',
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.3)',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderRadius: 14,
+    padding: 10,
     marginBottom: 16,
   },
   errorText: {
     color: '#F87171',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     textAlign: 'center',
   },
-  inputGroup: {
-    marginBottom: 18,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#E0E0EC',
-    marginBottom: 8,
-  },
-  inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: INPUT_BG,
-    borderWidth: 1.5,
-    borderColor: BORDER_COLOR,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  inputWrapFocused: {
-    borderColor: LIME_GREEN,
-    backgroundColor: '#181822',
-  },
-  input: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 15,
-    fontSize: 15,
-    color: '#FFFFFF',
-  },
-  eyeBtn: {
-    position: 'absolute',
-    right: 14,
-    padding: 4,
+  inputContainer: {
+    marginBottom: 12,
   },
   optionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 2,
-    marginBottom: 24,
+    justifyContent: 'space-between',
+    marginTop: 4,
+    marginBottom: 20,
   },
-  rememberWrap: {
+  rememberRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
   checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 5,
+    width: 16,
+    height: 16,
+    borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: BORDER_COLOR,
-    backgroundColor: INPUT_BG,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxActive: {
-    backgroundColor: LIME_GREEN,
-    borderColor: LIME_GREEN,
+  checkboxChecked: {
+    backgroundColor: '#9BEA20',
+    borderColor: '#9BEA20',
   },
-  rememberText: {
-    fontSize: 13,
-    color: TEXT_MUTED,
+  rememberLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.45)',
   },
-  forgotText: {
-    fontSize: 13,
-    color: LIME_GREEN,
-    fontWeight: '600',
+  forgotLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.55)',
   },
-  signInBtn: {
-    backgroundColor: LIME_GREEN,
-    borderRadius: 16,
-    paddingVertical: 17,
+  ctaButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(155, 234, 32, 0.35)',
+    borderRadius: 18,
+    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: LIME_GREEN,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowColor: '#9BEA20',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    marginBottom: 18,
   },
-  signInBtnText: {
-    color: '#000000',
-    fontSize: 16,
+  ctaButtonPressed: {
+    transform: [{ scale: 0.98 }],
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  ctaButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
     fontWeight: '800',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 24,
     gap: 12,
+    marginBottom: 18,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: BORDER_COLOR,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   dividerText: {
-    color: '#65657A',
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.25)',
+    letterSpacing: 0.5,
   },
   socialRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 16,
-    marginBottom: 30,
+    marginBottom: 20,
   },
   socialBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: CARD_BG,
-    borderWidth: 1.2,
-    borderColor: BORDER_COLOR,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bottomSwitchRow: {
+  switchRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  switchPrompt: {
-    color: TEXT_MUTED,
-    fontSize: 14,
+  switchText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.35)',
   },
   switchLink: {
-    color: LIME_GREEN,
-    fontSize: 14,
+    fontSize: 12,
+    color: '#9BEA20',
     fontWeight: '700',
   },
 });

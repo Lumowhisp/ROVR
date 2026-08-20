@@ -30,13 +30,19 @@ function RootNavigator() {
 
     if (!inAuthGroup && !isAuthenticated) {
       router.replace('/(auth)/sign-in' as any);
+    } else if (inAuthGroup && isAuthenticated) {
+      if (user?.isOnboarded) {
+        router.replace('/(main)/home' as any);
+      } else {
+        router.replace('/(onboarding)/gender' as any);
+      }
     }
   }, [isAuthenticated, isLoading, segments, navigationState?.key, router, user]);
 
   if (isLoading || !navigationState?.key) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6C63FF" />
+        <ActivityIndicator size="large" color="#9BEA20" />
       </View>
     );
   }

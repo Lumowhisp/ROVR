@@ -1,232 +1,188 @@
-import { View, Text, StyleSheet, Pressable } from "react-native";
-import { useEffect, useState } from "react";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  FadeIn,
-  FadeInUp,
-} from "react-native-reanimated";
-import { useAuth } from "@/context/AuthContext";
-import { profileAPI } from "@/services/api";
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { OnboardingShell } from '@/components/OnboardingShell';
+import { GlassCard } from '@/components/ui';
+import { useAuth } from '@/context/AuthContext';
+import Svg, { Path, Line, Circle } from 'react-native-svg';
 
-export default function BMIResultScreen() {
+export default function BMIScreen() {
   const router = useRouter();
-  const { user } = useAuth();
-  const params = useLocalSearchParams<{ bmi: string }>();
-  const [bmiValue, setBmiValue] = useState<number>(
-    params.bmi ? parseFloat(params.bmi) : user?.bmi || 22.5
-  );
+  const { user, updateUser } = useAuth();
 
-  const scaleVal = useSharedValue(0.8);
-  const opacityVal = useSharedValue(0);
+  const heightM = (user?.height || 172) / 100;
+  const weightKg = user?.weight || 70;
+  const bmiVal = parseFloat((weightKg / (heightM * heightM)).toFixed(1));
+  const pct = Math.min(Math.max(((bmiVal - 15) / (35 - 15)) * 100, 0), 100);
 
-  useEffect(() => {
-    scaleVal.value = withSpring(1, { damping: 12 });
-    opacityVal.value = withTiming(1, { duration: 600 });
-
-    if (!params.bmi && !user?.bmi) {
-      profileAPI.getBMI().then((res) => {
-        if (res?.bmi) {
-          setBmiValue(res.bmi);
-        }
-      }).catch(() => {});
-    }
-  }, [params.bmi, user?.bmi, scaleVal, opacityVal]);
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scaleVal.value }],
-    opacity: opacityVal.value,
-  }));
-
-  const getBMICategory = (val: number) => {
-    if (val < 18.5) return { category: "Underweight", color: "#38BDF8", desc: "Slightly below standard range" };
-    if (val < 25) return { category: "Normal Weight", color: "#4ADE80", desc: "Healthy, optimal BMI range" };
-    if (val < 30) return { category: "Overweight", color: "#FACC15", desc: "Slightly above standard range" };
-    return { category: "Obese", color: "#F87171", desc: "Higher risk health category" };
+  const getBMICategory = (bmi: number) => {
+    if (bmi < 18.5) return { label: 'Underweight', color: '#60A5FA', bg: 'rgba(96, 165, 250, 0.15)' };
+    if (bmi <= 24.9) return { label: 'Healthy Range · 18.5 — 24.9', color: '#15803D', bg: 'rgba(74, 222, 128, 0.2)' };
+    if (bmi <= 29.9) return { label: 'Overweight', color: '#D97706', bg: 'rgba(251, 191, 36, 0.2)' };
+    return { label: 'Obese', color: '#DC2626', bg: 'rgba(239, 68, 68, 0.2)' };
   };
 
-  const bmiInfo = getBMICategory(bmiValue);
+  const category = getBMICategory(bmiVal);
+
+  const handleNext = async () => {
+    try {
+      await updateUser({ bmi: bmiVal });
+    } catch {}
+    router.push('/(onboarding)/goal' as any);
+  };
+
+  // Needle angle in radians (-PI to 0)
+  const angle = Math.PI + (pct / 100) * Math.PI;
+  const needleX2 = 120 + 70 * Math.cos(angle);
+  const needleY2 = 120 + 70 * Math.sin(angle);
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={["#0A0A0F", "#11111E", "#0A0A0F"]}
-        style={StyleSheet.absoluteFill}
-      />
+    <OnboardingShell
+      step={5}
+      total={9}
+      onNext={handleNext}
+      nextLabel="Continue"
+      light
+    >
+      <Text style={styles.title}>Your Body Profile</Text>
+      <Text style={styles.subtitle}>Based on your height and weight.</Text>
 
-      <Animated.View entering={FadeIn.duration(600)} style={styles.header}>
-        <Text style={styles.title}>Your Body Mass Index</Text>
-        <Text style={styles.subtitle}>Calculated from your personal stats</Text>
-      </Animated.View>
+      {/* Semi-circle Gauge Card */}
+      <GlassCard dark={false} style={styles.gaugeCard}>
+        <View style={styles.svgContainer}>
+          <Svg width={240} height={130} viewBox="0 0 240 130">
+            {/* Background Arc Segments */}
+            <Path d="M 30 120 A 90 90 0 0 1 80 38" fill="none" stroke="#60A5FA" strokeWidth={10} strokeLinecap="round" opacity={0.3} />
+            <Path d="M 80 38 A 90 90 0 0 1 160 38" fill="none" stroke="#4ADE80" strokeWidth={10} strokeLinecap="round" opacity={0.3} />
+            <Path d="M 160 38 A 90 90 0 0 1 210 120" fill="none" stroke="#FBBF24" strokeWidth={10} strokeLinecap="round" opacity={0.3} />
 
-      <Animated.View style={[styles.card, animStyle]}>
-        <View style={[styles.circleRing, { borderColor: bmiInfo.color }]}>
-          <Text style={styles.bmiValueText}>{bmiValue.toFixed(1)}</Text>
-          <Text style={styles.bmiUnitText}>BMI</Text>
+            {/* Active Highlight Arc */}
+            <Path d="M 80 38 A 90 90 0 0 1 160 38" fill="none" stroke="#4ADE80" strokeWidth={12} strokeLinecap="round" opacity={0.9} />
+
+            {/* Needle */}
+            <Line x1="120" y1="120" x2={needleX2} y2={needleY2} stroke="#242629" strokeWidth={3} strokeLinecap="round" />
+            <Circle cx="120" cy="120" r="7" fill="#242629" />
+          </Svg>
+
+          <View style={styles.bmiValueCenter}>
+            <Text style={styles.bmiNumber}>{bmiVal}</Text>
+            <Text style={styles.bmiLabel}>BMI</Text>
+          </View>
         </View>
 
-        <View style={[styles.badge, { backgroundColor: `${bmiInfo.color}20`, borderColor: bmiInfo.color }]}>
-          <Text style={[styles.badgeText, { color: bmiInfo.color }]}>
-            {bmiInfo.category}
+        <View style={[styles.categoryBadge, { backgroundColor: category.bg }]}>
+          <Text style={[styles.categoryText, { color: category.color }]}>
+            {category.label}
           </Text>
         </View>
+      </GlassCard>
 
-        <Text style={styles.descriptionText}>{bmiInfo.desc}</Text>
+      {/* 3 Metric Cards */}
+      <View style={styles.metricCardsRow}>
+        <GlassCard dark={false} style={styles.metricCard}>
+          <Text style={styles.metricValue}>{weightKg} kg</Text>
+          <Text style={styles.metricLabel}>Weight</Text>
+        </GlassCard>
+        <GlassCard dark={false} style={styles.metricCard}>
+          <Text style={styles.metricValue}>{user?.height || 172} cm</Text>
+          <Text style={styles.metricLabel}>Height</Text>
+        </GlassCard>
+        <GlassCard dark={false} style={styles.metricCard}>
+          <Text style={styles.metricValue}>{bmiVal}</Text>
+          <Text style={styles.metricLabel}>BMI</Text>
+        </GlassCard>
+      </View>
 
-        <View style={styles.scaleContainer}>
-          <View style={styles.scaleBar}>
-            <View style={[styles.scaleSection, { backgroundColor: "#38BDF8" }]} />
-            <View style={[styles.scaleSection, { backgroundColor: "#4ADE80" }]} />
-            <View style={[styles.scaleSection, { backgroundColor: "#FACC15" }]} />
-            <View style={[styles.scaleSection, { backgroundColor: "#F87171" }]} />
-          </View>
-          <View style={styles.scaleLabels}>
-            <Text style={styles.scaleLabelText}>18.5</Text>
-            <Text style={styles.scaleLabelText}>25.0</Text>
-            <Text style={styles.scaleLabelText}>30.0</Text>
-          </View>
-        </View>
-      </Animated.View>
-
-      <Animated.View entering={FadeInUp.delay(300).duration(500)} style={styles.footer}>
-        <Pressable
-          style={styles.continueBtn}
-          onPress={() => router.push("/(onboarding)/rate-limit" as any)}
-        >
-          <LinearGradient
-            colors={["#6C63FF", "#4ADE80"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.btnGradient}
-          >
-            <Text style={styles.continueText}>Continue to Rate Limit</Text>
-          </LinearGradient>
-        </Pressable>
-      </Animated.View>
-    </View>
+      <Text style={styles.footerNote}>
+        Your current BMI is calibrated for healthy metabolic workouts.
+      </Text>
+    </OnboardingShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0A0A0F",
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
-    justifyContent: "space-between",
-  },
-  header: {
-    alignItems: "center",
-  },
   title: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#FFFFFF",
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#242629',
+    marginTop: 12,
+    marginBottom: 6,
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 15,
-    color: "rgba(255,255,255,0.6)",
-    marginTop: 6,
-  },
-  card: {
-    backgroundColor: "#161622",
-    borderRadius: 32,
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.08)",
-    paddingVertical: 36,
-    paddingHorizontal: 24,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  circleRing: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    borderWidth: 6,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.03)",
+    fontSize: 14,
+    color: '#687078',
     marginBottom: 20,
   },
-  bmiValueText: {
-    fontSize: 44,
-    fontWeight: "900",
-    color: "#FFFFFF",
+  gaugeCard: {
+    padding: 20,
+    alignItems: 'center',
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.55)',
+    borderColor: 'rgba(255, 255, 255, 0.75)',
+    marginBottom: 16,
   },
-  bmiUnitText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "rgba(255,255,255,0.5)",
-    letterSpacing: 2,
+  svgContainer: {
+    width: 240,
+    height: 130,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
-  badge: {
+  bmiValueCenter: {
+    position: 'absolute',
+    bottom: 0,
+    alignItems: 'center',
+  },
+  bmiNumber: {
+    fontSize: 36,
+    fontWeight: '900',
+    color: '#242629',
+    lineHeight: 40,
+  },
+  bmiLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#687078',
+    letterSpacing: 1.5,
+  },
+  categoryBadge: {
     paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginBottom: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginTop: 12,
   },
-  badgeText: {
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+  categoryText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
-  descriptionText: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.6)",
-    textAlign: "center",
-    marginBottom: 24,
+  metricCardsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
   },
-  scaleContainer: {
-    width: "100%",
-    paddingHorizontal: 10,
-  },
-  scaleBar: {
-    height: 10,
-    borderRadius: 5,
-    flexDirection: "row",
-    overflow: "hidden",
-    marginBottom: 8,
-  },
-  scaleSection: {
+  metricCard: {
     flex: 1,
+    padding: 14,
+    alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    borderColor: 'rgba(255, 255, 255, 0.65)',
   },
-  scaleLabels: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
+  metricValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#242629',
+    marginBottom: 2,
   },
-  scaleLabelText: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.4)",
-    fontWeight: "600",
+  metricLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#687078',
   },
-  footer: {
-    width: "100%",
-  },
-  continueBtn: {
-    borderRadius: 18,
-    overflow: "hidden",
-  },
-  btnGradient: {
-    paddingVertical: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  continueText: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+  footerNote: {
+    fontSize: 13,
+    color: '#687078',
+    textAlign: 'center',
   },
 });

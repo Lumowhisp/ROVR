@@ -1,337 +1,143 @@
-import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, ActivityIndicator, Alert } from "react-native";
-import { useState } from "react";
-import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
-import { Droplet, Sun, Moon, Zap, ChevronRight } from "lucide-react-native";
-import { onboardAPI } from "@/services/api";
-import { useAuth } from "@/context/AuthContext";
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { OnboardingShell } from '@/components/OnboardingShell';
+import { GlassCard, ProgressRing } from '@/components/ui';
 
 export default function HydrationSetupScreen() {
-  const [wakeTime, setWakeTime] = useState("07:00");
-  const [sleepTime, setSleepTime] = useState("23:00");
-  const [activityLevel, setActivityLevel] = useState<"Sedentary" | "Moderate" | "Active">("Moderate");
-  const [loading, setLoading] = useState(false);
-
   const router = useRouter();
-  const { updateUser } = useAuth();
 
-  const handleContinue = async () => {
-    if (!wakeTime.trim() || !sleepTime.trim()) {
-      Alert.alert("Input Error", "Please provide both wake and sleep times.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await onboardAPI.setupHydration({
-        wakeTime,
-        sleepTime,
-        activityLevel,
-      });
-
-      if (res.success) {
-        await updateUser({
-          isOnboarded: true,
-        });
-        router.push("/(onboarding)/complete" as any);
-      }
-    } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message || "Failed to save hydration preferences.";
-      Alert.alert("Error", message);
-    } finally {
-      setLoading(false);
-    }
+  const handleNext = () => {
+    router.push('/(onboarding)/complete' as any);
   };
 
-  const activityOptions: {
-    level: "Sedentary" | "Moderate" | "Active";
-    label: string;
-    desc: string;
-  }[] = [
-    { level: "Sedentary", label: "Sedentary", desc: "Desk job, low daily movement" },
-    { level: "Moderate", label: "Moderate", desc: "Walking, light workouts 3-4x/wk" },
-    { level: "Active", label: "Active", desc: "Intense daily training or physical job" },
+  const scheduleRows = [
+    { label: 'Wake Time', value: '07:00' },
+    { label: 'Sleep Time', value: '23:00' },
+    { label: 'Activity Level', value: 'Active' },
   ];
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={["#0A0A0F", "#08101E", "#0A0A0F"]}
-        style={StyleSheet.absoluteFill}
-      />
+    <OnboardingShell
+      step={8}
+      total={9}
+      onNext={handleNext}
+      nextLabel="Build My Plan"
+      light
+    >
+      <Text style={styles.title}>Your Hydration Plan</Text>
+      <Text style={styles.subtitle}>
+        ROVR builds your daily hydration target around your routine.
+      </Text>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <Animated.View entering={FadeIn.duration(600)} style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Droplet size={32} color="#38BDF8" />
-          </View>
-          <Text style={styles.title}>Hydration Plan</Text>
-          <Text style={styles.subtitle}>
-            Set your routine so ROVR can optimize your daily water targets
-          </Text>
-        </Animated.View>
+      <GlassCard dark={false} style={styles.card}>
+        <Text style={styles.headerLabel}>DAILY HYDRATION</Text>
 
-        {/* Schedule Inputs */}
-        <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Daily Schedule</Text>
-
-          <View style={styles.timeRow}>
-            <View style={styles.timeInputContainer}>
-              <View style={styles.timeLabelWrap}>
-                <Sun size={16} color="#FACC15" />
-                <Text style={styles.timeLabel}>Wake Time</Text>
-              </View>
-              <TextInput
-                style={styles.timeInput}
-                value={wakeTime}
-                onChangeText={setWakeTime}
-                placeholder="07:00"
-                placeholderTextColor="#6B7280"
-                maxLength={5}
-              />
-            </View>
-
-            <View style={styles.timeInputContainer}>
-              <View style={styles.timeLabelWrap}>
-                <Moon size={16} color="#818CF8" />
-                <Text style={styles.timeLabel}>Sleep Time</Text>
-              </View>
-              <TextInput
-                style={styles.timeInput}
-                value={sleepTime}
-                onChangeText={setSleepTime}
-                placeholder="23:00"
-                placeholderTextColor="#6B7280"
-                maxLength={5}
-              />
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* Activity Level Selector */}
-        <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.sectionCard}>
-          <View style={styles.sectionHeaderRow}>
-            <Zap size={18} color="#38BDF8" />
-            <Text style={styles.sectionTitle}>Activity Level</Text>
-          </View>
-
-          <View style={styles.optionsWrap}>
-            {activityOptions.map((opt) => {
-              const isSelected = activityLevel === opt.level;
-              return (
-                <Pressable
-                  key={opt.level}
-                  onPress={() => setActivityLevel(opt.level)}
-                  style={[
-                    styles.optionCard,
-                    isSelected && styles.optionCardSelected,
-                  ]}
-                >
-                  <View style={styles.radioOuter}>
-                    {isSelected && <View style={styles.radioInner} />}
-                  </View>
-                  <View style={styles.optionTextWrap}>
-                    <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>
-                      {opt.label}
-                    </Text>
-                    <Text style={styles.optionDesc}>{opt.desc}</Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Animated.View>
-
-        {/* CTA */}
-        <Animated.View entering={FadeInDown.delay(450).duration(500)} style={styles.footer}>
-          <Pressable
-            style={[styles.continueBtn, loading && { opacity: 0.7 }]}
-            onPress={handleContinue}
-            disabled={loading}
+        {/* Circular Water Gauge */}
+        <View style={styles.gaugeSection}>
+          <ProgressRing
+            size={144}
+            stroke={10}
+            progress={78}
+            color="#22D3EE"
+            trackColor="rgba(34, 211, 238, 0.12)"
           >
-            <LinearGradient
-              colors={["#0284C7", "#38BDF8"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.btnGradient}
-            >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <>
-                  <Text style={styles.continueText}>Complete Onboarding</Text>
-                  <ChevronRight size={20} color="#FFFFFF" strokeWidth={3} />
-                </>
-              )}
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
-      </ScrollView>
-    </View>
+            <View style={styles.gaugeInner}>
+              <Text style={styles.gaugeNumber}>2.8</Text>
+              <Text style={styles.gaugeUnit}>L / day</Text>
+            </View>
+          </ProgressRing>
+          <Text style={styles.targetLabel}>Daily Target</Text>
+        </View>
+
+        {/* Routine Breakdown */}
+        <View style={styles.rowsList}>
+          {scheduleRows.map((r) => (
+            <View key={r.label} style={styles.scheduleRow}>
+              <Text style={styles.rowLabel}>{r.label}</Text>
+              <Text style={styles.rowValue}>{r.value}</Text>
+            </View>
+          ))}
+        </View>
+      </GlassCard>
+    </OnboardingShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0A0A0F",
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 30,
-  },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "rgba(56, 189, 248, 0.12)",
-    borderWidth: 1.5,
-    borderColor: "rgba(56, 189, 248, 0.3)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
   title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#FFFFFF",
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#242629',
+    marginTop: 12,
+    marginBottom: 6,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: "rgba(255,255,255,0.6)",
-    textAlign: "center",
-    marginTop: 6,
-    paddingHorizontal: 10,
-  },
-  sectionCard: {
-    backgroundColor: "#11111A",
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#1E1E2E",
-    padding: 20,
+    color: '#687078',
     marginBottom: 20,
   },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 14,
+  card: {
+    padding: 22,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.55)',
+    borderColor: 'rgba(255, 255, 255, 0.75)',
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    marginBottom: 14,
+  headerLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#687078',
+    letterSpacing: 1.2,
+    textAlign: 'center',
+    marginBottom: 12,
   },
-  timeRow: {
-    flexDirection: "row",
-    gap: 12,
+  gaugeSection: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  timeInputContainer: {
-    flex: 1,
-    backgroundColor: "#0A0A10",
-    borderWidth: 1,
-    borderColor: "#27273A",
-    borderRadius: 16,
-    padding: 12,
+  gaugeInner: {
+    alignItems: 'center',
   },
-  timeLabelWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 6,
+  gaugeNumber: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#0891B2',
+    lineHeight: 38,
   },
-  timeLabel: {
+  gaugeUnit: {
     fontSize: 12,
-    fontWeight: "600",
-    color: "rgba(255,255,255,0.7)",
+    fontWeight: '700',
+    color: '#687078',
   },
-  timeInput: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    textAlign: "center",
-    paddingVertical: 4,
+  targetLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#687078',
+    marginTop: 8,
   },
-  optionsWrap: {
+  rowsList: {
     gap: 10,
   },
-  optionCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#0A0A10",
-    borderWidth: 1.5,
-    borderColor: "#222232",
+  scheduleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 16,
-    padding: 14,
-    gap: 12,
+    backgroundColor: 'rgba(34, 211, 238, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.18)',
   },
-  optionCardSelected: {
-    borderColor: "#38BDF8",
-    backgroundColor: "rgba(56, 189, 248, 0.08)",
+  rowLabel: {
+    fontSize: 13,
+    color: '#4B5563',
+    fontWeight: '500',
   },
-  radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: "#4B5563",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "#38BDF8",
-  },
-  optionTextWrap: {
-    flex: 1,
-  },
-  optionLabel: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "rgba(255,255,255,0.7)",
-  },
-  optionLabelSelected: {
-    color: "#FFFFFF",
-  },
-  optionDesc: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.45)",
-    marginTop: 2,
-  },
-  footer: {
-    marginTop: 10,
-  },
-  continueBtn: {
-    borderRadius: 18,
-    overflow: "hidden",
-  },
-  btnGradient: {
-    paddingVertical: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  continueText: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "800",
-    letterSpacing: 0.5,
+  rowValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111214',
   },
 });

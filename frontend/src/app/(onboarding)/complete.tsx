@@ -1,245 +1,228 @@
-import { View, Text, StyleSheet, Pressable } from "react-native";
-import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import Animated, { FadeIn, FadeInUp, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
-import { CheckCircle2, Sparkles, Flame, Droplet, ArrowRight } from "lucide-react-native";
-import { useAuth } from "@/context/AuthContext";
-import { useEffect } from "react";
+import React from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  Platform,
+  StatusBar,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Check } from 'lucide-react-native';
+import { useAuth } from '@/context/AuthContext';
+import * as Haptics from 'expo-haptics';
 
-export default function OnboardingCompleteScreen() {
+export default function CompleteScreen() {
   const router = useRouter();
-  const { user } = useAuth();
-  const scale = useSharedValue(0.5);
+  const { user, updateUser } = useAuth();
 
-  useEffect(() => {
-    scale.value = withSpring(1, { damping: 10, stiffness: 100 });
-  }, [scale]);
+  const handleStart = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await updateUser({ isOnboarded: true });
+    } catch {}
+    router.replace('/(main)/home' as any);
+  };
 
-  const badgeAnim = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const displayName = user?.name ? user.name.split(' ')[0] : 'Athlete';
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={["#0A0A0F", "#150A21", "#0A0A0F"]}
-        style={StyleSheet.absoluteFill}
-      />
+    <LinearGradient
+      colors={['#1A1C2E', '#111214', '#0D1A0D']}
+      style={styles.container}
+    >
+      <StatusBar barStyle="light-content" translucent />
+      <SafeAreaView style={styles.safeArea}>
+        {/* Ambient Glow */}
+        <View style={styles.ambientGlow} />
 
-      {/* Decorative Orbs */}
-      <View style={styles.orbTop} />
-
-      <View style={styles.content}>
-        <Animated.View style={[styles.iconWrap, badgeAnim]}>
-          <LinearGradient
-            colors={["#A855F7", "#6366F1", "#06B6D4"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.iconGradient}
-          >
-            <CheckCircle2 size={54} color="#FFFFFF" strokeWidth={2.5} />
-          </LinearGradient>
-        </Animated.View>
-
-        <Animated.View entering={FadeIn.delay(200).duration(600)} style={styles.textWrap}>
-          <View style={styles.tag}>
-            <Sparkles size={14} color="#A855F7" />
-            <Text style={styles.tagText}>Profile Ready</Text>
+        <View style={styles.content}>
+          {/* Main Success Circle */}
+          <View style={styles.circleContainer}>
+            <View style={styles.circleOuterAura} />
+            <View style={styles.circleInner}>
+              <View style={styles.checkIconWrap}>
+                <Check size={30} color="#9BEA20" strokeWidth={3} />
+              </View>
+            </View>
+            <View style={styles.readyPill}>
+              <Text style={styles.readyPillText}>PROFILE READY</Text>
+            </View>
           </View>
-          <Text style={styles.title}>You&apos;re All Set,{"\n"}{user?.name || "Athlete"}!</Text>
+
+          {/* Heading */}
+          <Text style={styles.title}>You&apos;re all set, {displayName}.</Text>
           <Text style={styles.subtitle}>
-            Your personalized metrics, limit threshold, and hydration roadmap have been generated.
+            Your personalized fitness profile is ready.
           </Text>
-        </Animated.View>
 
-        {/* Stats summary preview card */}
-        <Animated.View entering={FadeInUp.delay(350).duration(500)} style={styles.summaryCard}>
-          <View style={styles.statItem}>
-            <View style={[styles.statIconWrap, { backgroundColor: "rgba(168, 85, 247, 0.15)" }]}>
-              <Flame size={20} color="#A855F7" />
-            </View>
-            <Text style={styles.statVal}>{user?.bmi ? user.bmi.toFixed(1) : "22.5"}</Text>
-            <Text style={styles.statLabel}>BMI Index</Text>
+          {/* 3 Metric Cards */}
+          <View style={styles.metricRow}>
+            {[
+              { label: 'BMI', value: user?.bmi || '21.4' },
+              { label: 'LIMIT', value: '5/10' },
+              { label: 'HYDRATION', value: 'ACTIVE' },
+            ].map((m) => (
+              <View key={m.label} style={styles.metricCard}>
+                <Text style={styles.metricVal}>{m.value}</Text>
+                <Text style={styles.metricLbl}>{m.label}</Text>
+              </View>
+            ))}
           </View>
+        </View>
 
-          <View style={styles.divider} />
-
-          <View style={styles.statItem}>
-            <View style={[styles.statIconWrap, { backgroundColor: "rgba(74, 222, 128, 0.15)" }]}>
-              <Sparkles size={20} color="#4ADE80" />
-            </View>
-            <Text style={styles.statVal}>{user?.limitRating || 4}/10</Text>
-            <Text style={styles.statLabel}>Limit Rating</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.statItem}>
-            <View style={[styles.statIconWrap, { backgroundColor: "rgba(56, 189, 248, 0.15)" }]}>
-              <Droplet size={20} color="#38BDF8" />
-            </View>
-            <Text style={styles.statVal}>Active</Text>
-            <Text style={styles.statLabel}>Hydration</Text>
-          </View>
-        </Animated.View>
-      </View>
-
-      {/* Action button */}
-      <Animated.View entering={FadeInUp.delay(500).duration(500)} style={styles.footer}>
-        <Pressable
-          style={styles.startBtn}
-          onPress={() => {
-            router.replace("/(tracker)/workout" as any);
-          }}
-        >
-          <LinearGradient
-            colors={["#98E527", "#4ADE80"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.btnGradient}
+        {/* Bottom CTA */}
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={handleStart}
+            style={styles.startBtn}
           >
-            <Text style={[styles.btnText, { color: "#000000" }]}>Start Workout & Tracking</Text>
-            <ArrowRight size={20} color="#000000" strokeWidth={2.5} />
-          </LinearGradient>
-        </Pressable>
-      </Animated.View>
-    </View>
+            <Text style={styles.startBtnText}>Start Exploring ROVR →</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0A0A0F",
-    paddingHorizontal: 24,
-    paddingTop: 80,
-    paddingBottom: 40,
-    justifyContent: "space-between",
   },
-  orbTop: {
-    position: "absolute",
-    top: -100,
-    left: "25%",
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: "rgba(168, 85, 247, 0.15)",
+  safeArea: {
+    flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 20 : 0,
+    justifyContent: 'space-between',
+  },
+  ambientGlow: {
+    position: 'absolute',
+    top: '30%',
+    left: '20%',
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(155, 234, 32, 0.08)',
   },
   content: {
-    alignItems: "center",
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
-  iconWrap: {
-    marginBottom: 24,
-    shadowColor: "#A855F7",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 10,
+  circleContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 36,
   },
-  iconGradient: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignItems: "center",
-    justifyContent: "center",
+  circleOuterAura: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(155, 234, 32, 0.12)',
   },
-  textWrap: {
-    alignItems: "center",
+  circleInner: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(155, 234, 32, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  tag: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  checkIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(155, 234, 32, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  readyPill: {
+    position: 'absolute',
+    bottom: -12,
+    backgroundColor: '#9BEA20',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
     borderRadius: 20,
-    backgroundColor: "rgba(168, 85, 247, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(168, 85, 247, 0.3)",
-    marginBottom: 16,
+    shadowColor: '#9BEA20',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  tagText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#A855F7",
-    textTransform: "uppercase",
-    letterSpacing: 1,
+  readyPillText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#111214',
+    letterSpacing: 1.2,
   },
   title: {
     fontSize: 32,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    textAlign: "center",
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 8,
     letterSpacing: -0.5,
-    lineHeight: 38,
-    marginBottom: 12,
   },
   subtitle: {
     fontSize: 14,
-    color: "rgba(255, 255, 255, 0.6)",
-    textAlign: "center",
-    paddingHorizontal: 20,
-    lineHeight: 20,
+    color: 'rgba(255, 255, 255, 0.45)',
+    textAlign: 'center',
+    marginBottom: 36,
   },
-  summaryCard: {
-    marginTop: 40,
-    width: "100%",
-    backgroundColor: "#11111B",
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#1E1E2E",
-    paddingVertical: 20,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
+  metricRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
   },
-  statItem: {
-    alignItems: "center",
-  },
-  statIconWrap: {
-    width: 40,
-    height: 40,
+  metricCard: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
     borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
   },
-  statVal: {
+  metricVal: {
     fontSize: 18,
-    fontWeight: "800",
-    color: "#FFFFFF",
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.4)",
-    marginTop: 2,
-    textTransform: "uppercase",
+  metricLbl: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.35)',
+    letterSpacing: 1,
   },
-  divider: {
-    width: 1,
-    height: 40,
-    backgroundColor: "#1E1E2E",
-  },
-  footer: {
-    width: "100%",
+  bottomBar: {
+    paddingHorizontal: 24,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 32,
   },
   startBtn: {
-    borderRadius: 18,
-    overflow: "hidden",
-  },
-  btnGradient: {
+    backgroundColor: '#9BEA20',
+    borderRadius: 20,
     paddingVertical: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#9BEA20',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    elevation: 6,
   },
-  btnText: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "800",
-    letterSpacing: 0.5,
+  startBtnText: {
+    color: '#111214',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 0.2,
   },
 });

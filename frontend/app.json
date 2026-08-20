@@ -51,8 +51,12 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow ROVR to access your location to track workout routes and calculate distance in real time."
         }
-      ]
+      ],
+      "expo-image"
     ],
+    "updates": {
+      "enabled": false
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
